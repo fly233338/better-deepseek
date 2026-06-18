@@ -48,7 +48,11 @@ describe('FolderStore', () => {
 
     store.deleteFolder(root.id);
 
-    expect(store.snapshot()).toEqual({ folders: [], folderContents: {} });
+    expect(store.snapshot()).toEqual({
+      folders: [],
+      folderContents: {},
+      settings: { hideEnabled: true },
+    });
   });
 
   it('does not mutate constructor input', () => {
@@ -78,5 +82,14 @@ describe('FolderStore', () => {
     store.addConversation(second.id, conversation('def'));
 
     expect(Array.from(store.conversationIdsInFolders()).sort()).toEqual(['abc', 'def']);
+  });
+
+  it('persists folder settings in snapshots', () => {
+    const store = new FolderStore();
+
+    store.setSettings({ hideEnabled: false });
+
+    expect(store.getSettings()).toEqual({ hideEnabled: false });
+    expect(store.snapshot().settings).toEqual({ hideEnabled: false });
   });
 });

@@ -73,15 +73,7 @@ class BetterDeepSeekFolders {
     const actions = document.createElement('div');
     actions.className = 'bd-folder-toolbar';
     actions.append(
-      this.iconButton('eyeOff', '已收纳到文件夹的会话会在外部历史中隐藏', () => {
-        this.hideEnabled = !this.hideEnabled;
-        this.store.setSettings({ hideEnabled: this.hideEnabled });
-        this.persistAndRender();
-      }, this.hideEnabled),
-      this.iconButton('user', 'Better DeepSeek 本地文件夹', () => undefined),
-      this.iconButton('folder', '新建文件夹', () => this.createFolder(null)),
-      this.iconButton('cloud', '云同步暂未启用', () => undefined),
-      this.iconButton('settings', '设置暂未启用', () => undefined),
+      this.iconButton('settings', '设置', () => this.openSettingsDialog()),
       this.iconButton('plus', '新建文件夹', () => this.createFolder(null)),
     );
 
@@ -126,10 +118,14 @@ class BetterDeepSeekFolders {
     });
     this.makeConversationDropTarget(row, folder.id);
 
-    const toggle = this.iconButton(folder.isExpanded ? 'chevronDown' : 'chevronRight', '展开/收起', () => {
-      this.store.toggleFolder(folder.id);
-      this.persistAndRender();
-    });
+    const toggle = this.iconButton(
+      folder.isExpanded ? 'chevronDown' : 'chevronRight',
+      '展开/收起',
+      () => {
+        this.store.toggleFolder(folder.id);
+        this.persistAndRender();
+      },
+    );
     toggle.classList.add('bd-row-icon-button');
 
     const folderIcon = this.iconElement('folder');
@@ -138,7 +134,9 @@ class BetterDeepSeekFolders {
     const name = document.createElement('span');
     name.className = 'bd-folder-name';
     name.textContent = folder.name;
-    name.addEventListener('dblclick', () => this.renameFolder(folder));
+    name.addEventListener('dblclick', () => {
+      void this.renameFolder(folder);
+    });
 
     const actions = document.createElement('div');
     actions.className = 'bd-row-actions';
@@ -195,7 +193,9 @@ class BetterDeepSeekFolders {
 
     const remove = this.iconButton('x', '从文件夹移除', async (event) => {
       event.stopPropagation();
-      const confirmed = await this.confirmDialog(`从文件夹移除「${conversation.title}」？不会删除 DeepSeek 原始会话。`);
+      const confirmed = await this.confirmDialog(
+        `从文件夹移除“${conversation.title}”？不会删除 DeepSeek 原始会话。`,
+      );
       if (!confirmed) return;
       this.store.removeConversation(folderId, conversation.conversationId);
       this.persistAndRender();
@@ -274,6 +274,93 @@ class BetterDeepSeekFolders {
     this.persistAndRender();
   }
 
+  private async deleteFolder(folderId: string): Promise<void> {
+    const confirmed = await this.confirmDialog(
+      '删除该文件夹及其子文件夹？文件夹内引用会一并移除，但不会删除 DeepSeek 原始会话。',
+    );
+    if (!confirmed) return;
+    this.store.deleteFolder(folderId);
+    this.persistAndRender();
+  }
+
+  private async addCurrentConversation(preferredFolderId?: string): Promise<void> {
+    const conversation = currentConversation();
+    if (!conversation) {
+      await this.alertDialog('当前页面不是 DeepSeek 会话页。');
+      return;
+    }
+
+    const targetFolderId = preferredFolderId ?? this.store.foldersByParent(null)[0]?.id;
+    if (!targetFolderId) {
+      const folder = this.store.createFolder('默认');
+      this.store.addConversation(folder.id, conversation);
+    } else {
+      this.store.addConversation(targetFolderId, conversation);
+    }
+    this.persistAndRender();
+  }
+
+  private openSettingsDialog(): Promise<void> {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'bd-dialog-overlay';
+
+      const dialog = document.createElement('div');
+      dialog.className = 'bd-dialog';
+
+      const title = document.createElement('div');
+      title.className = 'bd-dialog-label';
+      title.textContent = '文件夹设置';
+
+      const row = document.createElement('label');
+      row.className = 'bd-setting-row';
+
+      const copy = document.createElement('span');
+      copy.className = 'bd-setting-copy';
+      copy.textContent = '收纳到文件夹后，隐藏外部历史对话';
+
+      const input = document.createElement('input');
+      input.className = 'bd-setting-checkbox';
+      input.type = 'checkbox';
+      input.checked = this.hideEnabled;
+
+      const switchTrack = document.createElement('span');
+      switchTrack.className = 'bd-setting-switch';
+      switchTrack.append(input, document.createElement('span'));
+
+      row.append(copy, switchTrack);
+
+      const actions = document.createElement('div');
+      actions.className = 'bd-dialog-actions';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'bd-dialog-btn bd-dialog-cancel';
+      cancelBtn.textContent = '取消';
+
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'bd-dialog-btn bd-dialog-confirm';
+      confirmBtn.textContent = '保存';
+
+      const cleanup = () => {
+        overlay.remove();
+        resolve();
+      };
+
+      cancelBtn.addEventListener('click', cleanup);
+      confirmBtn.addEventListener('click', () => {
+        this.hideEnabled = input.checked;
+        this.store.setSettings({ hideEnabled: this.hideEnabled });
+        this.persistAndRender();
+        cleanup();
+      });
+
+      actions.append(cancelBtn, confirmBtn);
+      dialog.append(title, row, actions);
+      overlay.append(dialog);
+      document.body.append(overlay);
+    });
+  }
+
   private promptDialog(title: string, initialValue: string): Promise<string | null> {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
@@ -309,9 +396,9 @@ class BetterDeepSeekFolders {
 
       cancelBtn.addEventListener('click', () => cleanup(null));
       confirmBtn.addEventListener('click', () => cleanup(input.value.trim() || null));
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') confirmBtn.click();
-        if (e.key === 'Escape') cancelBtn.click();
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') confirmBtn.click();
+        if (event.key === 'Escape') cancelBtn.click();
       });
 
       actions.append(cancelBtn, confirmBtn);
@@ -390,30 +477,6 @@ class BetterDeepSeekFolders {
       overlay.append(dialog);
       document.body.append(overlay);
     });
-  }
-
-  private async deleteFolder(folderId: string): Promise<void> {
-    const confirmed = await this.confirmDialog('删除该文件夹及其子文件夹？文件夹内引用会一并移除，但不会删除 DeepSeek 原始会话。');
-    if (!confirmed) return;
-    this.store.deleteFolder(folderId);
-    this.persistAndRender();
-  }
-
-  private async addCurrentConversation(preferredFolderId?: string): Promise<void> {
-    const conversation = currentConversation();
-    if (!conversation) {
-      await this.alertDialog('当前页面不是 DeepSeek 会话页。');
-      return;
-    }
-
-    const targetFolderId = preferredFolderId ?? this.store.foldersByParent(null)[0]?.id;
-    if (!targetFolderId) {
-      const folder = this.store.createFolder('默认');
-      this.store.addConversation(folder.id, conversation);
-    } else {
-      this.store.addConversation(targetFolderId, conversation);
-    }
-    this.persistAndRender();
   }
 
   private enhanceNativeConversationRows(): void {
@@ -501,7 +564,7 @@ class BetterDeepSeekFolders {
   private iconButton(
     icon: IconName,
     title: string,
-    onClick: (event: MouseEvent) => void,
+    onClick: (event: MouseEvent) => void | Promise<void>,
     active = false,
   ): HTMLButtonElement {
     const button = document.createElement('button');
@@ -510,7 +573,9 @@ class BetterDeepSeekFolders {
     button.type = 'button';
     button.title = title;
     button.append(this.iconElement(icon));
-    button.addEventListener('click', onClick);
+    button.addEventListener('click', (event) => {
+      void onClick(event);
+    });
     return button;
   }
 
@@ -525,13 +590,9 @@ type IconName =
   | 'chat'
   | 'chevronDown'
   | 'chevronRight'
-  | 'cloud'
-  | 'eyeOff'
   | 'folder'
-  | 'gear'
   | 'plus'
   | 'settings'
-  | 'user'
   | 'x';
 
 const baseIconAttrs =
@@ -541,13 +602,9 @@ const ICONS: Record<IconName, string> = {
   chat: `<svg ${baseIconAttrs}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>`,
   chevronDown: `<svg ${baseIconAttrs}><path d="m6 9 6 6 6-6"/></svg>`,
   chevronRight: `<svg ${baseIconAttrs}><path d="m9 6 6 6-6 6"/></svg>`,
-  cloud: `<svg ${baseIconAttrs}><path d="M17.5 19H8a5 5 0 1 1 1.1-9.9A6 6 0 0 1 20 12.5 3.5 3.5 0 0 1 17.5 19z"/></svg>`,
-  eyeOff: `<svg ${baseIconAttrs}><path d="m3 3 18 18"/><path d="M10.6 10.6A2 2 0 0 0 13.4 13.4"/><path d="M9.9 5.2A9.7 9.7 0 0 1 12 5c5 0 8.5 4.5 9.5 7a12.2 12.2 0 0 1-2.2 3.4"/><path d="M6.4 6.4A12.3 12.3 0 0 0 2.5 12c1 2.5 4.5 7 9.5 7a9.6 9.6 0 0 0 4.3-1"/></svg>`,
   folder: `<svg ${baseIconAttrs}><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`,
-  gear: `<svg ${baseIconAttrs}><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.1a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`,
   plus: `<svg ${baseIconAttrs}><path d="M12 5v14"/><path d="M5 12h14"/></svg>`,
   settings: `<svg ${baseIconAttrs}><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.1a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`,
-  user: `<svg ${baseIconAttrs}><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>`,
   x: `<svg ${baseIconAttrs}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
 };
 

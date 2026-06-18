@@ -27,7 +27,8 @@ Better DeepSeek is currently a Manifest V3 browser extension that injects local 
 - Click folder conversations to navigate back to the original DeepSeek chat.
 - No floating fallback: the folder panel embeds into the DeepSeek sidebar once a reliable sidebar target exists.
 - Voyager-inspired sidebar styling with a light blue/white DeepSeek palette, rounded icon buttons, folder rows, and selected conversation pills.
-- Hide native history rows once their conversations are collected into a Better DeepSeek folder; removing the folder reference reveals them again.
+- Settings dialog in the sidebar header. The "hide native history rows after filing" behavior is controlled there instead of taking space in the main toolbar.
+- Hide native history rows once their conversations are collected into a Better DeepSeek folder when the setting is enabled; removing the folder reference reveals them again.
 
 ## Reference Policy
 
@@ -37,5 +38,4 @@ Better DeepSeek is currently a Manifest V3 browser extension that injects local 
 
 - Probe real DeepSeek DOM variants after login and tighten selectors where needed.
 - Add import/export for `FolderData`.
-- Add a popup/options page for settings.
 - Add account isolation if DeepSeek exposes multiple account contexts in the URL or page state.

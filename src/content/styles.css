@@ -258,6 +258,59 @@
   margin-top: 16px;
 }
 
+.bd-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 300px;
+  padding: 10px 0;
+  color: #273449;
+  font-size: 14px;
+}
+
+.bd-setting-copy {
+  flex: 1;
+}
+
+.bd-setting-switch {
+  position: relative;
+  display: inline-flex;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #d9e1ee;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.bd-setting-switch span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(31, 41, 55, 0.22);
+  transition: transform 120ms ease;
+}
+
+.bd-setting-checkbox {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.bd-setting-switch:has(.bd-setting-checkbox:checked) {
+  background: #6c96ff;
+}
+
+.bd-setting-switch:has(.bd-setting-checkbox:checked) span {
+  transform: translateX(18px);
+}
+
 .bd-dialog-btn {
   padding: 6px 16px;
   border: 0;

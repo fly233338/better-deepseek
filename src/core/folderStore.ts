@@ -2,12 +2,13 @@ import { createId } from './id';
 import type { ConversationReference, Folder, FolderData, FolderId, FolderSettings } from './types';
 
 const MAX_DEPTH = 1;
+const DEFAULT_SETTINGS: FolderSettings = { hideEnabled: true };
 
 export class FolderStore {
   private data: FolderData;
 
   constructor(data?: FolderData) {
-    this.data = data ? cloneData(data) : { folders: [], folderContents: {} };
+    this.data = data ? cloneData(data) : { folders: [], folderContents: {}, settings: DEFAULT_SETTINGS };
   }
 
   snapshot(): FolderData {
@@ -133,7 +134,7 @@ export class FolderStore {
   }
 
   getSettings(): FolderSettings {
-    return this.data.settings ?? { hideEnabled: true };
+    return { ...DEFAULT_SETTINGS, ...this.data.settings };
   }
 
   setSettings(settings: FolderSettings): void {
@@ -176,6 +177,6 @@ function cloneData(data: FolderData): FolderData {
         conversations.map((conversation) => ({ ...conversation })),
       ]),
     ),
-    settings: data.settings ? { ...data.settings } : undefined,
+    settings: data.settings ? { ...data.settings } : { ...DEFAULT_SETTINGS },
   };
 }
