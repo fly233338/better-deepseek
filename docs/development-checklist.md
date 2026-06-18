@@ -28,6 +28,13 @@
 - Behavior: the folder header includes a debounced search field that filters folder names and filed conversation titles without modifying stored data.
 - Verification: `npm run typecheck` and `npm run build` verify the render path.
 
+## Conversation Reorder
+
+- Status: implemented.
+- Key files: `src/core/folderStore.ts`, `src/content/index.ts`, `src/content/styles.css`.
+- Behavior: filed conversations can be dragged before or after another filed conversation. The store reindexes source and target folders after same-folder reorder or cross-folder moves.
+- Verification: `npm run test` covers same-folder reorder and cross-folder insertion with normalized `sortIndex` values.
+
 ## Sidebar Settings
 
 - Status: implemented.

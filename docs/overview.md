@@ -24,6 +24,7 @@ Better DeepSeek is currently a Manifest V3 browser extension that injects local 
 - Add current conversation to a folder.
 - Drag native DeepSeek history conversations into folders.
 - Move conversations between folders.
+- Reorder filed conversations by dragging them before or after another filed conversation.
 - Pin frequently used folders to the top of their sibling group.
 - Assign preset colors to folders; folder icons and filed conversation accent bars use the folder color.
 - Search folder names and filed conversation titles from the folder header without changing stored data.
@@ -41,5 +42,5 @@ Better DeepSeek is currently a Manifest V3 browser extension that injects local 
 ## Roadmap
 
 - Probe real DeepSeek DOM variants after login and tighten selectors where needed.
-- Add drag reorder for folder contents and folders.
+- Add drag reorder for folders.
 - Add account isolation if DeepSeek exposes multiple account contexts in the URL or page state.

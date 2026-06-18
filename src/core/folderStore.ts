@@ -115,10 +115,45 @@ export class FolderStore {
     this.addConversation(targetFolderId, conversation);
   }
 
+  moveConversationToPosition(
+    sourceFolderId: FolderId | undefined,
+    targetFolderId: FolderId,
+    conversation: ConversationReference,
+    targetConversationId: string,
+    placement: 'before' | 'after',
+  ): void {
+    this.requireFolder(targetFolderId);
+
+    if (sourceFolderId) {
+      this.data.folderContents[sourceFolderId] = (
+        this.data.folderContents[sourceFolderId] ?? []
+      ).filter((item) => item.conversationId !== conversation.conversationId);
+      this.reindexFolderContents(sourceFolderId);
+    } else {
+      this.removeConversationEverywhere(conversation.conversationId);
+    }
+
+    const contents = this.data.folderContents[targetFolderId] ?? [];
+    const targetIndex = contents.findIndex((item) => item.conversationId === targetConversationId);
+    const insertIndex =
+      targetIndex === -1 ? contents.length : targetIndex + (placement === 'after' ? 1 : 0);
+    const now = Date.now();
+
+    contents.splice(insertIndex, 0, {
+      ...conversation,
+      addedAt: conversation.addedAt || now,
+      updatedAt: now,
+      sortIndex: insertIndex,
+    });
+    this.data.folderContents[targetFolderId] = contents;
+    this.reindexFolderContents(targetFolderId);
+  }
+
   removeConversation(folderId: FolderId, conversationId: string): void {
     this.data.folderContents[folderId] = (this.data.folderContents[folderId] ?? []).filter(
       (item) => item.conversationId !== conversationId,
     );
+    this.reindexFolderContents(folderId);
   }
 
   foldersByParent(parentId: FolderId | null): Folder[] {
@@ -161,7 +196,17 @@ export class FolderStore {
       this.data.folderContents[folderId] = this.data.folderContents[folderId].filter(
         (item) => item.conversationId !== conversationId,
       );
+      this.reindexFolderContents(folderId);
     }
+  }
+
+  private reindexFolderContents(folderId: FolderId): void {
+    this.data.folderContents[folderId] = (this.data.folderContents[folderId] ?? []).map(
+      (conversation, index) => ({
+        ...conversation,
+        sortIndex: index,
+      }),
+    );
   }
 
   private requireFolder(folderId: FolderId): Folder {

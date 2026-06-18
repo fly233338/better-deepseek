@@ -255,6 +255,7 @@ class BetterDeepSeekFolders {
       };
       event.dataTransfer?.setData(DRAG_MIME, JSON.stringify(payload));
     });
+    this.makeConversationReorderTarget(row, folderId, conversation.conversationId);
 
     const chatIcon = this.iconElement('chat');
     chatIcon.classList.add('bd-chat-symbol');
@@ -308,6 +309,51 @@ class BetterDeepSeekFolders {
       }
       this.persistAndRender();
     });
+  }
+
+  private makeConversationReorderTarget(
+    element: HTMLElement,
+    folderId: string,
+    targetConversationId: string,
+  ): void {
+    element.addEventListener('dragover', (event) => {
+      if (!this.eventHasDragPayload(event)) return;
+      event.preventDefault();
+
+      const placement = this.getConversationDropPlacement(event, element);
+      element.classList.toggle('bd-reorder-before', placement === 'before');
+      element.classList.toggle('bd-reorder-after', placement === 'after');
+    });
+
+    element.addEventListener('dragleave', () => {
+      this.clearConversationReorderState(element);
+    });
+
+    element.addEventListener('drop', (event) => {
+      const payload = this.readDragPayload(event);
+      this.clearConversationReorderState(element);
+      if (!payload || payload.type !== 'conversation') return;
+      if (payload.sourceFolderId === folderId && payload.conversation.conversationId === targetConversationId) return;
+
+      event.preventDefault();
+      this.store.moveConversationToPosition(
+        payload.sourceFolderId,
+        folderId,
+        payload.conversation,
+        targetConversationId,
+        this.getConversationDropPlacement(event, element),
+      );
+      this.persistAndRender();
+    });
+  }
+
+  private getConversationDropPlacement(event: DragEvent, element: HTMLElement): 'before' | 'after' {
+    const rect = element.getBoundingClientRect();
+    return event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+  }
+
+  private clearConversationReorderState(element: HTMLElement): void {
+    element.classList.remove('bd-reorder-before', 'bd-reorder-after');
   }
 
   private eventHasDragPayload(event: DragEvent): boolean {

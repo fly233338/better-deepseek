@@ -183,6 +183,14 @@
   background: var(--bd-folder-accent, #66e2aa);
 }
 
+.bd-conversation-row.bd-reorder-before {
+  box-shadow: inset 0 2px 0 #4f7cff;
+}
+
+.bd-conversation-row.bd-reorder-after {
+  box-shadow: inset 0 -2px 0 #4f7cff;
+}
+
 .bd-current-conversation {
   background: linear-gradient(90deg, #c8ffe8 0, #eef8ff 48%, #ffffff 100%);
 }

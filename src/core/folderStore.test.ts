@@ -126,4 +126,56 @@ describe('FolderStore', () => {
       color: '#74a8ff',
     });
   });
+
+  it('reorders conversations within a folder', () => {
+    const store = new FolderStore();
+    const folder = store.createFolder('Ordered');
+
+    store.addConversation(folder.id, conversation('a'));
+    store.addConversation(folder.id, conversation('b'));
+    store.addConversation(folder.id, conversation('c'));
+
+    store.moveConversationToPosition(
+      folder.id,
+      folder.id,
+      conversation('c'),
+      'a',
+      'before',
+    );
+
+    expect(store.conversations(folder.id).map((item) => item.conversationId)).toEqual([
+      'c',
+      'a',
+      'b',
+    ]);
+    expect(store.conversations(folder.id).map((item) => item.sortIndex)).toEqual([0, 1, 2]);
+  });
+
+  it('moves conversations between folders at a target position', () => {
+    const store = new FolderStore();
+    const source = store.createFolder('Source');
+    const target = store.createFolder('Target');
+
+    store.addConversation(source.id, conversation('a'));
+    store.addConversation(source.id, conversation('b'));
+    store.addConversation(target.id, conversation('x'));
+    store.addConversation(target.id, conversation('y'));
+
+    store.moveConversationToPosition(
+      source.id,
+      target.id,
+      conversation('a'),
+      'y',
+      'after',
+    );
+
+    expect(store.conversations(source.id).map((item) => item.conversationId)).toEqual(['b']);
+    expect(store.conversations(source.id).map((item) => item.sortIndex)).toEqual([0]);
+    expect(store.conversations(target.id).map((item) => item.conversationId)).toEqual([
+      'x',
+      'y',
+      'a',
+    ]);
+    expect(store.conversations(target.id).map((item) => item.sortIndex)).toEqual([0, 1, 2]);
+  });
 });
