@@ -56,6 +56,7 @@ class BetterDeepSeekFolders {
   private searchQuery = '';
   private searchInput: HTMLInputElement | null = null;
   private folderSearchQueries = new Map<string, string>();
+  private openFolderSearchIds = new Set<string>();
   private hideEnabled = true;
 
   async mount(): Promise<void> {
@@ -130,7 +131,8 @@ class BetterDeepSeekFolders {
       this.searchInput.type = 'search';
       this.searchInput.placeholder = '搜索文件夹和会话';
       this.searchInput.value = this.searchQuery;
-      this.searchInput.addEventListener('input', () => {
+      this.searchInput.addEventListener('input', (event) => {
+        if ((event as InputEvent).isComposing) return;
         if (this.searchTimer) window.clearTimeout(this.searchTimer);
         this.searchTimer = window.setTimeout(() => {
           this.searchQuery = this.searchInput!.value;
@@ -288,32 +290,63 @@ class BetterDeepSeekFolders {
       void this.renameFolder(folder);
     });
 
-    const actions = document.createElement('div');
-    actions.className = 'bd-row-actions';
-    actions.append(
+    const actionButtons = [
       this.iconButton(folder.pinned ? 'pinOff' : 'pin', folder.pinned ? '取消置顶' : '置顶文件夹', () => {
         this.store.togglePinned(folder.id);
         this.persistAndRender();
       }),
       this.iconButton('palette', '设置颜色', () => this.openColorDialog(folder)),
       this.iconButton('plus', '新建子文件夹', () => this.createFolder(folder.id)),
-      this.iconButton('x', '删除文件夹', () => this.deleteFolder(folder.id)),
-    );
+    ];
+
+    if (this.featureEnabled('folderSearch')) {
+      actionButtons.push(
+        this.iconButton('search', '搜索文件夹', () => {
+          if (this.openFolderSearchIds.has(folder.id)) {
+            this.openFolderSearchIds.delete(folder.id);
+            this.folderSearchQueries.delete(folder.id);
+          } else {
+            this.openFolderSearchIds.add(folder.id);
+          }
+          this.persistAndRender();
+        }),
+      );
+    }
+
+    actionButtons.push(this.iconButton('x', '删除文件夹', () => this.deleteFolder(folder.id)));
+
+    const actions = document.createElement('div');
+    actions.className = 'bd-row-actions';
+    actions.append(...actionButtons);
 
     row.append(toggle, folderIcon, name, actions);
     block.append(row);
 
     const folderQuery = this.folderSearchQueries.get(folder.id) ?? '';
 
-    if (folder.isExpanded && this.featureEnabled('folderSearch')) {
+    const folderSearchOpen = this.openFolderSearchIds.has(folder.id);
+
+    if (folder.isExpanded && this.featureEnabled('folderSearch') && folderSearchOpen) {
       const folderSearchInput = document.createElement('input');
       folderSearchInput.className = 'bd-folder-inner-search';
       folderSearchInput.type = 'search';
       folderSearchInput.placeholder = '搜索此文件夹';
       folderSearchInput.value = folderQuery;
-      folderSearchInput.addEventListener('input', () => {
+      folderSearchInput.addEventListener('input', (event) => {
+        if ((event as InputEvent).isComposing) return;
         this.folderSearchQueries.set(folder.id, folderSearchInput.value);
+        if (!folderSearchInput.value) {
+          this.openFolderSearchIds.delete(folder.id);
+          this.folderSearchQueries.delete(folder.id);
+        }
         this.render();
+      });
+      folderSearchInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          this.openFolderSearchIds.delete(folder.id);
+          this.folderSearchQueries.delete(folder.id);
+          this.render();
+        }
       });
       block.append(folderSearchInput);
     }
@@ -1175,6 +1208,7 @@ type IconName =
   | 'pin'
   | 'pinOff'
   | 'plus'
+  | 'search'
   | 'settings'
   | 'x';
 
@@ -1190,6 +1224,7 @@ const ICONS: Record<IconName, string> = {
   pin: `<svg ${baseIconAttrs}><path d="M12 17v5"/><path d="M5 17h14"/><path d="M15 3.6 14 10l3 3v4H7v-4l3-3-.9-6.4A1 1 0 0 1 10.1 2h3.8a1 1 0 0 1 1.1 1.6z"/></svg>`,
   pinOff: `<svg ${baseIconAttrs}><path d="m3 3 18 18"/><path d="M12 17v5"/><path d="M5 17h12"/><path d="M10 4 9.5 7.5"/><path d="M14.5 10.5 17 13v4H7v-4l2-2"/><path d="M14 2a1 1 0 0 1 1 1.2L14 10"/></svg>`,
   plus: `<svg ${baseIconAttrs}><path d="M12 5v14"/><path d="M5 12h14"/></svg>`,
+  search: `<svg ${baseIconAttrs}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`,
   settings: `<svg ${baseIconAttrs}><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.1a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`,
   x: `<svg ${baseIconAttrs}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
 };
