@@ -26,9 +26,11 @@ class BetterDeepSeekFolders {
   private store = new FolderStore();
   private observer: MutationObserver | null = null;
   private saveTimer: number | null = null;
+  private hideEnabled = true;
 
   async mount(): Promise<void> {
     this.store = new FolderStore(await this.storage.load());
+    this.hideEnabled = this.store.getSettings().hideEnabled;
     this.render();
     this.enhanceNativeConversationRows();
     this.refreshNativeConversationVisibility();
@@ -72,8 +74,10 @@ class BetterDeepSeekFolders {
     actions.className = 'bd-folder-toolbar';
     actions.append(
       this.iconButton('eyeOff', '已收纳到文件夹的会话会在外部历史中隐藏', () => {
-        this.refreshNativeConversationVisibility();
-      }),
+        this.hideEnabled = !this.hideEnabled;
+        this.store.setSettings({ hideEnabled: this.hideEnabled });
+        this.persistAndRender();
+      }, this.hideEnabled),
       this.iconButton('user', 'Better DeepSeek 本地文件夹', () => undefined, true),
       this.iconButton('folder', '新建文件夹', () => this.createFolder(null)),
       this.iconButton('cloud', '云同步暂未启用', () => undefined),
@@ -334,7 +338,7 @@ class BetterDeepSeekFolders {
     for (const element of document.querySelectorAll<HTMLElement>('[data-bd-native-hidden="true"]')) {
       const anchor = element.querySelector<HTMLAnchorElement>('a[href*="/chat/s/"]');
       const id = anchor ? extractConversationId(anchor.href) : null;
-      const shouldHide = Boolean(id && hiddenIds.has(id));
+      const shouldHide = this.hideEnabled && Boolean(id && hiddenIds.has(id));
       element.classList.toggle('bd-native-hidden', shouldHide);
       if (!shouldHide) delete element.dataset.bdNativeHidden;
     }
@@ -346,9 +350,10 @@ class BetterDeepSeekFolders {
       if (!id) continue;
 
       const row = findNativeConversationContainer(anchor);
-      const shouldHide = hiddenIds.has(id);
+      const shouldHide = this.hideEnabled && hiddenIds.has(id);
       row.classList.toggle('bd-native-hidden', shouldHide);
       if (shouldHide) row.dataset.bdNativeHidden = 'true';
+      else delete row.dataset.bdNativeHidden;
     }
   }
 

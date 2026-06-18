@@ -20,9 +20,14 @@ export interface ConversationReference {
   sortIndex: number;
 }
 
+export interface FolderSettings {
+  hideEnabled: boolean;
+}
+
 export interface FolderData {
   folders: Folder[];
   folderContents: Record<FolderId, ConversationReference[]>;
+  settings?: FolderSettings;
 }
 
 export interface ConversationDragPayload {

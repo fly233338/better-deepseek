@@ -10,6 +10,7 @@ export interface FolderStorage {
 const emptyFolderData = (): FolderData => ({
   folders: [],
   folderContents: {},
+  settings: { hideEnabled: true },
 });
 
 function isFolderData(value: unknown): value is FolderData {

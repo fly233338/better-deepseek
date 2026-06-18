@@ -1,5 +1,5 @@
 import { createId } from './id';
-import type { ConversationReference, Folder, FolderData, FolderId } from './types';
+import type { ConversationReference, Folder, FolderData, FolderId, FolderSettings } from './types';
 
 const MAX_DEPTH = 1;
 
@@ -132,6 +132,14 @@ export class FolderStore {
     return ids;
   }
 
+  getSettings(): FolderSettings {
+    return this.data.settings ?? { hideEnabled: true };
+  }
+
+  setSettings(settings: FolderSettings): void {
+    this.data.settings = { ...settings };
+  }
+
   private removeConversationEverywhere(conversationId: string): void {
     for (const folderId of Object.keys(this.data.folderContents)) {
       this.data.folderContents[folderId] = this.data.folderContents[folderId].filter(
@@ -168,5 +176,6 @@ function cloneData(data: FolderData): FolderData {
         conversations.map((conversation) => ({ ...conversation })),
       ]),
     ),
+    settings: data.settings ? { ...data.settings } : undefined,
   };
 }

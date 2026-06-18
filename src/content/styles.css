@@ -7,24 +7,21 @@
 }
 
 .bd-folder-root svg {
-  width: 20px;
-  height: 20px;
+  width: 12px;
+  height: 12px;
   display: block;
 }
 
 .bd-folder-header {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 42px;
+  flex-direction: column;
+  gap: 6px;
   margin-bottom: 8px;
 }
 
 .bd-folder-title {
-  flex: 1;
-  min-width: 0;
   color: #6b7280;
-  font-size: 18px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0;
 }
@@ -41,8 +38,8 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -86,7 +83,7 @@
   padding-left: calc(var(--bd-level, 0) * 18px);
   border-radius: 10px;
   color: #1f2937;
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -152,7 +149,7 @@
   background: linear-gradient(90deg, #dbfff0 0, #f7fbff 46%, #ffffff 100%);
   color: #273449;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 580;
 }
 
