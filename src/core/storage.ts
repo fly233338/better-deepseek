@@ -1,6 +1,16 @@
-import type { FolderData } from './types';
+import type { FolderData, FolderFeatureSettings } from './types';
 
 const STORAGE_KEY = 'betterDeepSeek.folderData.v1';
+const DEFAULT_FEATURES: FolderFeatureSettings = {
+  pinFolders: true,
+  folderColors: true,
+  folderSearch: true,
+  folderExport: true,
+  folderImport: true,
+  conversationReorder: true,
+  folderReorder: true,
+  multiSelect: false,
+};
 
 export interface FolderStorage {
   load(): Promise<FolderData>;
@@ -10,7 +20,7 @@ export interface FolderStorage {
 const emptyFolderData = (): FolderData => ({
   folders: [],
   folderContents: {},
-  settings: { hideEnabled: true },
+  settings: { hideEnabled: true, features: DEFAULT_FEATURES },
 });
 
 function isFolderData(value: unknown): value is FolderData {

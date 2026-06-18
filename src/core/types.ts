@@ -22,8 +22,20 @@ export interface ConversationReference {
   sortIndex: number;
 }
 
+export interface FolderFeatureSettings {
+  pinFolders: boolean;
+  folderColors: boolean;
+  folderSearch: boolean;
+  folderExport: boolean;
+  folderImport: boolean;
+  conversationReorder: boolean;
+  folderReorder: boolean;
+  multiSelect: boolean;
+}
+
 export interface FolderSettings {
   hideEnabled: boolean;
+  features?: FolderFeatureSettings;
 }
 
 export interface FolderData {

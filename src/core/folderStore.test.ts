@@ -40,6 +40,42 @@ describe('FolderStore', () => {
     ]);
   });
 
+  it('moves conversations in batches without duplicates', () => {
+    const store = new FolderStore();
+    const first = store.createFolder('A');
+    const second = store.createFolder('B');
+
+    store.addConversation(first.id, conversation('a'));
+    store.addConversation(first.id, conversation('b'));
+    store.addConversations(second.id, [
+      conversation('a', 'Moved A'),
+      conversation('b', 'Moved B'),
+      conversation('a', 'Latest A'),
+    ]);
+
+    expect(store.conversations(first.id)).toHaveLength(0);
+    expect(store.conversations(second.id).map((item) => item.title)).toEqual([
+      'Latest A',
+      'Moved B',
+    ]);
+    expect(store.conversations(second.id).map((item) => item.sortIndex)).toEqual([0, 1]);
+  });
+
+  it('removes conversations in batches and reindexes the folder', () => {
+    const store = new FolderStore();
+    const folder = store.createFolder('A');
+
+    store.addConversations(folder.id, [
+      conversation('a'),
+      conversation('b'),
+      conversation('c'),
+    ]);
+    store.removeConversations(folder.id, ['a', 'c']);
+
+    expect(store.conversations(folder.id).map((item) => item.conversationId)).toEqual(['b']);
+    expect(store.conversations(folder.id).map((item) => item.sortIndex)).toEqual([0]);
+  });
+
   it('deletes child folders and contents with the parent folder', () => {
     const store = new FolderStore();
     const root = store.createFolder('Root');
@@ -51,7 +87,7 @@ describe('FolderStore', () => {
     expect(store.snapshot()).toEqual({
       folders: [],
       folderContents: {},
-      settings: { hideEnabled: true },
+      settings: expect.objectContaining({ hideEnabled: true }),
     });
   });
 
@@ -87,10 +123,38 @@ describe('FolderStore', () => {
   it('persists folder settings in snapshots', () => {
     const store = new FolderStore();
 
-    store.setSettings({ hideEnabled: false });
+    store.setSettings({
+      hideEnabled: false,
+      features: {
+        pinFolders: false,
+        folderColors: true,
+        folderSearch: true,
+        folderExport: true,
+        folderImport: true,
+        conversationReorder: true,
+        folderReorder: true,
+        multiSelect: false,
+      },
+    });
 
-    expect(store.getSettings()).toEqual({ hideEnabled: false });
-    expect(store.snapshot().settings).toEqual({ hideEnabled: false });
+    expect(store.getSettings()).toMatchObject({
+      hideEnabled: false,
+      features: { pinFolders: false },
+    });
+    expect(store.snapshot().settings).toMatchObject({
+      hideEnabled: false,
+      features: { pinFolders: false },
+    });
+  });
+
+  it('fills missing feature settings with defaults', () => {
+    const store = new FolderStore({ folders: [], folderContents: {}, settings: { hideEnabled: true } });
+
+    expect(store.getSettings().features).toMatchObject({
+      pinFolders: true,
+      folderColors: true,
+      multiSelect: false,
+    });
   });
 
   it('sorts pinned folders before unpinned folders within the same parent', () => {
@@ -113,6 +177,20 @@ describe('FolderStore', () => {
       'Child B',
       'Child A',
     ]);
+  });
+
+  it('keeps normal folder ordering when pinned folders are disabled', () => {
+    const store = new FolderStore();
+    store.createFolder('First');
+    const second = store.createFolder('Second');
+
+    store.togglePinned(second.id);
+    store.setSettings({
+      ...store.getSettings(),
+      features: { ...store.getSettings().features!, pinFolders: false },
+    });
+
+    expect(store.foldersByParent(null).map((folder) => folder.name)).toEqual(['First', 'Second']);
   });
 
   it('reorders folders within the same parent', () => {

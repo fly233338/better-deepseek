@@ -46,8 +46,15 @@
 
 - Status: implemented.
 - Key files: `src/content/index.ts`, `src/content/styles.css`, `src/core/folderStore.ts`, `src/core/types.ts`.
-- Behavior: the settings button opens a local dialog with the "hide native history rows after filing" toggle. The setting persists with folder data.
-- Verification: `npm run typecheck` verifies settings wiring.
+- Behavior: the settings button opens a local dialog with the "hide native history rows after filing" toggle plus per-feature toggles for pinning, colors, search, import/export, reorder, and multi-select. Settings persist with folder data.
+- Verification: `npm run test` covers settings default merging and disabled pinned ordering; `npm run typecheck` verifies settings wiring.
+
+## Multi-Select Batch Actions
+
+- Status: implemented behind a setting toggle.
+- Key files: `src/core/folderStore.ts`, `src/content/index.ts`, `src/content/styles.css`.
+- Behavior: when enabled, filed conversations and native DeepSeek history rows get checkboxes. Selected conversations can be moved into a chosen folder; selected filed conversations can be removed from Better DeepSeek folders without deleting the original DeepSeek chats.
+- Verification: `npm run test` covers batched conversation add/remove store behavior; `npm run typecheck` and `npm run build` verify UI wiring.
 
 ## Hide Foldered Native History Rows
 

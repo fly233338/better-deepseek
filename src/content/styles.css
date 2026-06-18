@@ -52,6 +52,43 @@
   box-shadow: 0 0 0 2px rgba(141, 184, 255, 0.18);
 }
 
+.bd-selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border: 1px solid #d8e4f5;
+  border-radius: 8px;
+  background: #f7fbff;
+}
+
+.bd-selection-count {
+  flex: 1;
+  color: #5f6b7d;
+  font-size: 12px;
+}
+
+.bd-selection-action {
+  border: 0;
+  border-radius: 6px;
+  padding: 3px 6px;
+  background: #e9f0ff;
+  color: #4f6fd8;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.bd-selection-action:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.bd-selection-muted {
+  background: transparent;
+  color: #7a8494;
+}
+
 .bd-icon-button {
   display: inline-flex;
   align-items: center;
@@ -154,6 +191,14 @@
   opacity: 1;
 }
 
+.bd-feature-pin-off .bd-row-actions .bd-icon-button:nth-child(1) {
+  display: none;
+}
+
+.bd-feature-colors-off .bd-row-actions .bd-icon-button:nth-child(2) {
+  display: none;
+}
+
 .bd-row-actions .bd-icon-button,
 .bd-conversation-remove {
   width: 24px;
@@ -214,6 +259,15 @@
   opacity: 0;
 }
 
+.bd-conversation-select,
+.bd-native-select {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #5a82ff;
+}
+
 .bd-conversation-row:hover .bd-conversation-remove {
   opacity: 1;
 }
@@ -235,6 +289,10 @@
   height: 22px;
   margin-left: 4px;
   color: #708098;
+}
+
+.bd-native-select {
+  margin-left: 4px;
 }
 
 .bd-native-save-button svg {
@@ -261,6 +319,7 @@
   border-radius: 12px;
   padding: 20px;
   min-width: 260px;
+  max-width: min(360px, calc(100vw - 32px));
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
@@ -324,6 +383,14 @@
   font-size: 14px;
 }
 
+.bd-feature-settings {
+  max-height: 280px;
+  overflow: auto;
+  padding: 2px 0;
+  border-top: 1px solid #eef2f7;
+  border-bottom: 1px solid #eef2f7;
+}
+
 .bd-setting-copy {
   flex: 1;
 }
@@ -384,6 +451,30 @@
 .bd-color-option:hover,
 .bd-color-option-active {
   border-color: #273449;
+}
+
+.bd-folder-choice-list {
+  display: grid;
+  gap: 4px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.bd-folder-choice {
+  width: 100%;
+  min-height: 32px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 10px 0 calc(10px + var(--bd-choice-level, 0) * 16px);
+  background: #f7fbff;
+  color: #273449;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.bd-folder-choice:hover {
+  background: #eef5ff;
 }
 
 .bd-dialog-btn {

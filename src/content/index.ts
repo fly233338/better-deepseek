@@ -16,6 +16,7 @@ import type {
   ConversationDragPayload,
   ConversationReference,
   DragPayload,
+  FolderFeatureSettings,
   Folder,
 } from '../core/types';
 import {
@@ -40,12 +41,18 @@ const FOLDER_COLORS = [
   { label: '琥珀', value: '#f4bf5f' },
 ] as const;
 
+interface SelectedConversation {
+  conversation: ConversationReference;
+  sourceFolderId?: string;
+}
+
 class BetterDeepSeekFolders {
   private readonly storage = new ExtensionFolderStorage();
   private store = new FolderStore();
   private observer: MutationObserver | null = null;
   private saveTimer: number | null = null;
   private searchTimer: number | null = null;
+  private readonly selectedConversations = new Map<string, SelectedConversation>();
   private searchQuery = '';
   private hideEnabled = true;
 
@@ -61,8 +68,10 @@ class BetterDeepSeekFolders {
   private render(): void {
     const root = this.ensureRoot();
     if (!root) return;
+    root.classList.toggle('bd-feature-pin-off', !this.featureEnabled('pinFolders'));
+    root.classList.toggle('bd-feature-colors-off', !this.featureEnabled('folderColors'));
 
-    const query = this.normalizedSearchQuery();
+    const query = this.featureEnabled('folderSearch') ? this.normalizedSearchQuery() : '';
     root.innerHTML = '';
     root.append(this.headerElement());
 
@@ -99,21 +108,105 @@ class BetterDeepSeekFolders {
       this.iconButton('plus', '新建文件夹', () => this.createFolder(null)),
     );
 
-    const search = document.createElement('input');
-    search.className = 'bd-folder-search';
-    search.type = 'search';
-    search.placeholder = '搜索文件夹和会话';
-    search.value = this.searchQuery;
-    search.addEventListener('input', () => {
-      if (this.searchTimer) window.clearTimeout(this.searchTimer);
-      this.searchTimer = window.setTimeout(() => {
-        this.searchQuery = search.value;
-        this.render();
-      }, 150);
+    header.append(title, actions);
+    if (this.featureEnabled('folderSearch')) {
+      const search = document.createElement('input');
+      search.className = 'bd-folder-search';
+      search.type = 'search';
+      search.placeholder = '搜索文件夹和会话';
+      search.value = this.searchQuery;
+      search.addEventListener('input', () => {
+        if (this.searchTimer) window.clearTimeout(this.searchTimer);
+        this.searchTimer = window.setTimeout(() => {
+          this.searchQuery = search.value;
+          this.render();
+        }, 150);
+      });
+      header.append(search);
+    }
+    const selectionBar = this.selectionToolbarElement();
+    if (selectionBar) header.append(selectionBar);
+    return header;
+  }
+
+  private selectionToolbarElement(): HTMLElement | null {
+    if (!this.featureEnabled('multiSelect')) {
+      this.clearSelection();
+      return null;
+    }
+
+    const selected = this.selectedItems();
+    if (selected.length === 0) return null;
+
+    const bar = document.createElement('div');
+    bar.className = 'bd-selection-toolbar';
+
+    const count = document.createElement('span');
+    count.className = 'bd-selection-count';
+    count.textContent = `已选 ${selected.length}`;
+
+    const move = document.createElement('button');
+    move.type = 'button';
+    move.className = 'bd-selection-action';
+    move.textContent = '移动所选';
+    move.addEventListener('click', () => {
+      void this.moveSelectedConversations();
     });
 
-    header.append(title, actions, search);
-    return header;
+    const selectedFromFolders = selected.filter((item) => item.sourceFolderId);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'bd-selection-action';
+    remove.textContent = '移除所选';
+    remove.disabled = selectedFromFolders.length === 0;
+    remove.addEventListener('click', () => {
+      void this.removeSelectedConversations();
+    });
+
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'bd-selection-action bd-selection-muted';
+    clear.textContent = '清空';
+    clear.addEventListener('click', () => {
+      this.clearSelection();
+      this.refreshSelectionUi();
+    });
+
+    bar.append(count, move, remove, clear);
+    return bar;
+  }
+
+  private selectedItems(): SelectedConversation[] {
+    return Array.from(this.selectedConversations.values());
+  }
+
+  private isConversationSelected(conversationId: string): boolean {
+    return this.selectedConversations.has(conversationId);
+  }
+
+  private setConversationSelected(
+    conversation: ConversationReference,
+    selected: boolean,
+    sourceFolderId?: string,
+  ): void {
+    if (selected) {
+      this.selectedConversations.set(conversation.conversationId, { conversation, sourceFolderId });
+    } else {
+      this.selectedConversations.delete(conversation.conversationId);
+    }
+  }
+
+  private clearSelection(): void {
+    this.selectedConversations.clear();
+  }
+
+  private refreshSelectionUi(): void {
+    this.render();
+    this.enhanceNativeConversationRows();
+  }
+
+  private featureEnabled(feature: keyof FolderFeatureSettings): boolean {
+    return Boolean(this.store.getSettings().features?.[feature]);
   }
 
   private ensureRoot(): HTMLElement | null {
@@ -140,7 +233,10 @@ class BetterDeepSeekFolders {
     const block = document.createElement('div');
     block.className = 'bd-folder-block';
     block.dataset.folderId = folder.id;
-    block.style.setProperty('--bd-folder-accent', folder.color || DEFAULT_FOLDER_COLOR);
+    block.style.setProperty(
+      '--bd-folder-accent',
+      this.featureEnabled('folderColors') ? folder.color || DEFAULT_FOLDER_COLOR : DEFAULT_FOLDER_COLOR,
+    );
 
     const row = document.createElement('div');
     row.className = 'bd-folder-row';
@@ -255,7 +351,23 @@ class BetterDeepSeekFolders {
       };
       event.dataTransfer?.setData(DRAG_MIME, JSON.stringify(payload));
     });
-    this.makeConversationReorderTarget(row, folderId, conversation.conversationId);
+    if (this.featureEnabled('conversationReorder')) {
+      this.makeConversationReorderTarget(row, folderId, conversation.conversationId);
+    }
+
+    const select = document.createElement('input');
+    select.className = 'bd-conversation-select';
+    select.type = 'checkbox';
+    select.title = '选择会话';
+    select.checked = this.isConversationSelected(conversation.conversationId);
+    select.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+    select.addEventListener('change', (event) => {
+      event.stopPropagation();
+      this.setConversationSelected(conversation, select.checked, folderId);
+      this.refreshSelectionUi();
+    });
 
     const chatIcon = this.iconElement('chat');
     chatIcon.classList.add('bd-chat-symbol');
@@ -275,6 +387,7 @@ class BetterDeepSeekFolders {
     });
     remove.classList.add('bd-conversation-remove');
 
+    if (this.featureEnabled('multiSelect')) row.append(select);
     row.append(chatIcon, title, remove);
     return row;
   }
@@ -284,7 +397,9 @@ class BetterDeepSeekFolders {
       if (!this.eventHasDragPayload(event)) return;
 
       event.preventDefault();
-      const placement = this.getFolderDropPlacement(event, element);
+      const placement = this.featureEnabled('folderReorder')
+        ? this.getFolderDropPlacement(event, element)
+        : 'inside';
       element.classList.toggle('bd-reorder-before', placement === 'before');
       element.classList.toggle('bd-drop-target', placement === 'inside');
       element.classList.toggle('bd-reorder-after', placement === 'after');
@@ -296,7 +411,9 @@ class BetterDeepSeekFolders {
 
     element.addEventListener('drop', async (event) => {
       const payload = this.readDragPayload(event);
-      const placement = this.getFolderDropPlacement(event, element);
+      const placement = this.featureEnabled('folderReorder')
+        ? this.getFolderDropPlacement(event, element)
+        : 'inside';
       this.clearFolderDropState(element);
       if (!payload) return;
 
@@ -442,6 +559,68 @@ class BetterDeepSeekFolders {
     this.persistAndRender();
   }
 
+  private async moveSelectedConversations(): Promise<void> {
+    if (!this.featureEnabled('multiSelect')) return;
+
+    const selected = this.selectedItems();
+    if (selected.length === 0) return;
+
+    const targetFolderId = await this.selectTargetFolder();
+    if (!targetFolderId) return;
+
+    this.store.addConversations(
+      targetFolderId,
+      selected.map((item) => item.conversation),
+    );
+    this.clearSelection();
+    this.persistAndRender();
+  }
+
+  private async removeSelectedConversations(): Promise<void> {
+    if (!this.featureEnabled('multiSelect')) return;
+
+    const selectedFromFolders = this.selectedItems().filter((item) => item.sourceFolderId);
+    if (selectedFromFolders.length === 0) return;
+
+    const confirmed = await this.confirmDialog(
+      `从 Better DeepSeek 文件夹移除 ${selectedFromFolders.length} 个所选会话？不会删除 DeepSeek 原始会话。`,
+    );
+    if (!confirmed) return;
+
+    const idsByFolder = new Map<string, string[]>();
+    for (const item of selectedFromFolders) {
+      const sourceFolderId = item.sourceFolderId;
+      if (!sourceFolderId) continue;
+
+      const ids = idsByFolder.get(sourceFolderId) ?? [];
+      ids.push(item.conversation.conversationId);
+      idsByFolder.set(sourceFolderId, ids);
+      this.selectedConversations.delete(item.conversation.conversationId);
+    }
+
+    for (const [folderId, conversationIds] of idsByFolder) {
+      this.store.removeConversations(folderId, conversationIds);
+    }
+    this.persistAndRender();
+  }
+
+  private async selectTargetFolder(): Promise<string | null> {
+    const folders = this.flattenFolders();
+    if (folders.length === 0) {
+      return this.store.createFolder('默认').id;
+    }
+
+    return this.folderChoiceDialog('移动到文件夹', folders);
+  }
+
+  private flattenFolders(parentId: string | null = null, level = 0): Array<{ folder: Folder; level: number }> {
+    const folders = this.store.foldersByParent(parentId);
+    return folders.flatMap((folder) => [
+      { folder, level },
+      ...this.flattenFolders(folder.id, level + 1),
+    ]);
+  }
+
   private openColorDialog(folder: Folder): Promise<void> {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
@@ -491,6 +670,54 @@ class BetterDeepSeekFolders {
     });
   }
 
+  private folderChoiceDialog(
+    labelText: string,
+    folders: Array<{ folder: Folder; level: number }>,
+  ): Promise<string | null> {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'bd-dialog-overlay';
+
+      const dialog = document.createElement('div');
+      dialog.className = 'bd-dialog';
+
+      const label = document.createElement('div');
+      label.className = 'bd-dialog-label';
+      label.textContent = labelText;
+
+      const list = document.createElement('div');
+      list.className = 'bd-folder-choice-list';
+
+      const cleanup = (folderId: string | null) => {
+        overlay.remove();
+        resolve(folderId);
+      };
+
+      for (const { folder, level } of folders) {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'bd-folder-choice';
+        option.style.setProperty('--bd-choice-level', String(level));
+        option.textContent = folder.name;
+        option.addEventListener('click', () => cleanup(folder.id));
+        list.append(option);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'bd-dialog-actions';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'bd-dialog-btn bd-dialog-cancel';
+      cancelBtn.textContent = '取消';
+      cancelBtn.addEventListener('click', () => cleanup(null));
+
+      actions.append(cancelBtn);
+      dialog.append(label, list, actions);
+      overlay.append(dialog);
+      document.body.append(overlay);
+    });
+  }
+
   private openSettingsDialog(): Promise<void> {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
@@ -520,6 +747,44 @@ class BetterDeepSeekFolders {
       switchTrack.append(input, document.createElement('span'));
 
       row.append(copy, switchTrack);
+
+      const featureInputs = new Map<keyof FolderFeatureSettings, HTMLInputElement>();
+      const featureList = document.createElement('div');
+      featureList.className = 'bd-feature-settings';
+
+      const currentFeatures = this.store.getSettings().features;
+      const featureOptions: Array<{ key: keyof FolderFeatureSettings; label: string }> = [
+        { key: 'pinFolders', label: '置顶文件夹' },
+        { key: 'folderColors', label: '文件夹颜色' },
+        { key: 'folderSearch', label: '文件夹搜索' },
+        { key: 'folderExport', label: '导出文件夹' },
+        { key: 'folderImport', label: '导入和备份' },
+        { key: 'conversationReorder', label: '会话拖拽排序' },
+        { key: 'folderReorder', label: '文件夹拖拽排序' },
+        { key: 'multiSelect', label: '多选批量操作' },
+      ];
+
+      for (const option of featureOptions) {
+        const featureRow = document.createElement('label');
+        featureRow.className = 'bd-setting-row';
+
+        const featureCopy = document.createElement('span');
+        featureCopy.className = 'bd-setting-copy';
+        featureCopy.textContent = option.label;
+
+        const featureInput = document.createElement('input');
+        featureInput.className = 'bd-setting-checkbox';
+        featureInput.type = 'checkbox';
+        featureInput.checked = Boolean(currentFeatures?.[option.key]);
+        featureInputs.set(option.key, featureInput);
+
+        const featureSwitch = document.createElement('span');
+        featureSwitch.className = 'bd-setting-switch';
+        featureSwitch.append(featureInput, document.createElement('span'));
+
+        featureRow.append(featureCopy, featureSwitch);
+        featureList.append(featureRow);
+      }
 
       const exportButton = document.createElement('button');
       exportButton.className = 'bd-dialog-btn bd-dialog-secondary';
@@ -579,25 +844,37 @@ class BetterDeepSeekFolders {
 
       cancelBtn.addEventListener('click', cleanup);
       confirmBtn.addEventListener('click', () => {
+        const features: FolderFeatureSettings = { ...this.store.getSettings().features! };
+        for (const [key, featureInput] of featureInputs) {
+          features[key] = featureInput.checked;
+        }
         this.hideEnabled = input.checked;
-        this.store.setSettings({ hideEnabled: this.hideEnabled });
+        this.store.setSettings({ hideEnabled: this.hideEnabled, features });
+        if (!features.multiSelect) this.clearSelection();
         this.persistAndRender();
         cleanup();
       });
 
       actions.append(cancelBtn, confirmBtn);
-      dialog.append(title, row, exportButton, importButton, restoreButton, importInput, actions);
+      dialog.append(title, row, featureList);
+      if (this.featureEnabled('folderExport')) dialog.append(exportButton);
+      if (this.featureEnabled('folderImport')) dialog.append(importButton, restoreButton, importInput);
+      dialog.append(actions);
       overlay.append(dialog);
       document.body.append(overlay);
     });
   }
 
   private exportFolders(): void {
+    if (!this.featureEnabled('folderExport')) return;
+
     const payload = createFolderExportPayload(this.store.snapshot());
     downloadJson(payload, generateFolderExportFilename());
   }
 
   private async importFoldersFromFile(file: File): Promise<void> {
+    if (!this.featureEnabled('folderImport')) return;
+
     try {
       const parsed = await readJsonFile(file);
       if (!isFolderExportPayload(parsed)) {
@@ -768,7 +1045,31 @@ class BetterDeepSeekFolders {
       }
 
       const host = anchor.parentElement;
-      if (!host || host.querySelector('.bd-native-save-button')) continue;
+      if (!host) continue;
+
+      const existingSelect = host.querySelector<HTMLInputElement>('.bd-native-select');
+      if (this.featureEnabled('multiSelect')) {
+        const select = existingSelect ?? document.createElement('input');
+        if (!existingSelect) {
+          select.className = 'bd-native-select';
+          select.type = 'checkbox';
+          select.title = '选择会话';
+          select.addEventListener('click', (event) => {
+            event.stopPropagation();
+          });
+          select.addEventListener('change', (event) => {
+            event.stopPropagation();
+            this.setConversationSelected(conversation, select.checked);
+            this.refreshSelectionUi();
+          });
+          host.append(select);
+        }
+        select.checked = this.isConversationSelected(conversation.conversationId);
+      } else {
+        existingSelect?.remove();
+      }
+
+      if (host.querySelector('.bd-native-save-button')) continue;
 
       const button = this.iconButton('plus', '保存到第一个 Better DeepSeek 文件夹', (event) => {
         event.preventDefault();

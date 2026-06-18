@@ -1,8 +1,25 @@
 import { createId } from './id';
-import type { ConversationReference, Folder, FolderData, FolderId, FolderSettings } from './types';
+import type {
+  ConversationReference,
+  Folder,
+  FolderData,
+  FolderFeatureSettings,
+  FolderId,
+  FolderSettings,
+} from './types';
 
 const MAX_DEPTH = 1;
-const DEFAULT_SETTINGS: FolderSettings = { hideEnabled: true };
+const DEFAULT_FEATURES: FolderFeatureSettings = {
+  pinFolders: true,
+  folderColors: true,
+  folderSearch: true,
+  folderExport: true,
+  folderImport: true,
+  conversationReorder: true,
+  folderReorder: true,
+  multiSelect: false,
+};
+const DEFAULT_SETTINGS: FolderSettings = { hideEnabled: true, features: DEFAULT_FEATURES };
 
 export class FolderStore {
   private data: FolderData;
@@ -135,16 +152,29 @@ export class FolderStore {
   }
 
   addConversation(folderId: FolderId, conversation: ConversationReference): void {
+    this.addConversations(folderId, [conversation]);
+  }
+
+  addConversations(folderId: FolderId, conversations: ConversationReference[]): void {
     this.requireFolder(folderId);
+    if (conversations.length === 0) return;
+
+    const unique = new Map<string, ConversationReference>();
+    for (const conversation of conversations) {
+      unique.set(conversation.conversationId, conversation);
+    }
+
     const now = Date.now();
-    this.removeConversationEverywhere(conversation.conversationId);
+    this.removeConversationsEverywhere(new Set(unique.keys()));
     const contents = this.data.folderContents[folderId] ?? [];
-    contents.push({
-      ...conversation,
-      addedAt: conversation.addedAt || now,
-      updatedAt: now,
-      sortIndex: contents.length,
-    });
+    for (const conversation of unique.values()) {
+      contents.push({
+        ...conversation,
+        addedAt: conversation.addedAt || now,
+        updatedAt: now,
+        sortIndex: contents.length,
+      });
+    }
     this.data.folderContents[folderId] = contents;
   }
 
@@ -196,8 +226,15 @@ export class FolderStore {
   }
 
   removeConversation(folderId: FolderId, conversationId: string): void {
+    this.removeConversations(folderId, [conversationId]);
+  }
+
+  removeConversations(folderId: FolderId, conversationIds: Iterable<string>): void {
+    const ids = new Set(conversationIds);
+    if (ids.size === 0) return;
+
     this.data.folderContents[folderId] = (this.data.folderContents[folderId] ?? []).filter(
-      (item) => item.conversationId !== conversationId,
+      (item) => !ids.has(item.conversationId),
     );
     this.reindexFolderContents(folderId);
   }
@@ -225,17 +262,21 @@ export class FolderStore {
   }
 
   getSettings(): FolderSettings {
-    return { ...DEFAULT_SETTINGS, ...this.data.settings };
+    return mergeSettings(this.data.settings);
   }
 
   setSettings(settings: FolderSettings): void {
-    this.data.settings = { ...settings };
+    this.data.settings = mergeSettings(settings);
   }
 
   private removeConversationEverywhere(conversationId: string): void {
+    this.removeConversationsEverywhere(new Set([conversationId]));
+  }
+
+  private removeConversationsEverywhere(conversationIds: Set<string>): void {
     for (const folderId of Object.keys(this.data.folderContents)) {
       this.data.folderContents[folderId] = this.data.folderContents[folderId].filter(
-        (item) => item.conversationId !== conversationId,
+        (item) => !conversationIds.has(item.conversationId),
       );
       this.reindexFolderContents(folderId);
     }
@@ -257,10 +298,14 @@ export class FolderStore {
   }
 
   private sortedFoldersByParent(parentId: FolderId | null): Folder[] {
+    const pinFoldersEnabled = Boolean(this.getSettings().features?.pinFolders);
+
     return this.data.folders
       .filter((folder) => folder.parentId === parentId)
       .sort((a, b) => {
-        const pinnedOrder = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned));
+        const pinnedOrder = pinFoldersEnabled
+          ? Number(Boolean(b.pinned)) - Number(Boolean(a.pinned))
+          : 0;
         return pinnedOrder || a.sortIndex - b.sortIndex || a.createdAt - b.createdAt;
       });
   }
@@ -293,6 +338,17 @@ function cloneData(data: FolderData): FolderData {
         conversations.map((conversation) => ({ ...conversation })),
       ]),
     ),
-    settings: data.settings ? { ...data.settings } : { ...DEFAULT_SETTINGS },
+    settings: mergeSettings(data.settings),
+  };
+}
+
+function mergeSettings(settings?: FolderSettings): FolderSettings {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...settings,
+    features: {
+      ...DEFAULT_FEATURES,
+      ...settings?.features,
+    },
   };
 }
