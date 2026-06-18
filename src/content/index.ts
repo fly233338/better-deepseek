@@ -216,7 +216,7 @@ class BetterDeepSeekFolders {
       element.classList.remove('bd-drop-target');
     });
 
-    element.addEventListener('drop', (event) => {
+    element.addEventListener('drop', async (event) => {
       const payload = this.readDragPayload(event);
       element.classList.remove('bd-drop-target');
       if (!payload) return;
@@ -229,7 +229,7 @@ class BetterDeepSeekFolders {
           this.store.moveFolder(payload.folderId, folderId);
         }
       } catch (error) {
-        alert(error instanceof Error ? error.message : '移动失败');
+        await this.alertDialog(error instanceof Error ? error.message : '移动失败');
         return;
       }
       this.persistAndRender();
@@ -261,7 +261,7 @@ class BetterDeepSeekFolders {
       this.store.createFolder(name, parentId);
       this.persistAndRender();
     } catch (error) {
-      alert(error instanceof Error ? error.message : '创建文件夹失败');
+      await this.alertDialog(error instanceof Error ? error.message : '创建文件夹失败');
     }
   }
 
@@ -321,18 +321,86 @@ class BetterDeepSeekFolders {
     });
   }
 
-  private deleteFolder(folderId: string): void {
-    if (!confirm('删除该文件夹及其子文件夹？文件夹内引用会一并移除，但不会删除 DeepSeek 原始会话。')) {
-      return;
-    }
+  private confirmDialog(message: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'bd-dialog-overlay';
+
+      const dialog = document.createElement('div');
+      dialog.className = 'bd-dialog';
+
+      const label = document.createElement('div');
+      label.className = 'bd-dialog-label';
+      label.textContent = message;
+
+      const actions = document.createElement('div');
+      actions.className = 'bd-dialog-actions';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'bd-dialog-btn bd-dialog-cancel';
+      cancelBtn.textContent = '取消';
+
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'bd-dialog-btn bd-dialog-confirm';
+      confirmBtn.textContent = '确定';
+
+      const cleanup = (result: boolean) => {
+        overlay.remove();
+        resolve(result);
+      };
+
+      cancelBtn.addEventListener('click', () => cleanup(false));
+      confirmBtn.addEventListener('click', () => cleanup(true));
+
+      actions.append(cancelBtn, confirmBtn);
+      dialog.append(label, actions);
+      overlay.append(dialog);
+      document.body.append(overlay);
+    });
+  }
+
+  private alertDialog(message: string): Promise<void> {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'bd-dialog-overlay';
+
+      const dialog = document.createElement('div');
+      dialog.className = 'bd-dialog';
+
+      const label = document.createElement('div');
+      label.className = 'bd-dialog-label';
+      label.textContent = message;
+
+      const actions = document.createElement('div');
+      actions.className = 'bd-dialog-actions';
+
+      const okBtn = document.createElement('button');
+      okBtn.className = 'bd-dialog-btn bd-dialog-confirm';
+      okBtn.textContent = '确定';
+
+      okBtn.addEventListener('click', () => {
+        overlay.remove();
+        resolve();
+      });
+
+      actions.append(okBtn);
+      dialog.append(label, actions);
+      overlay.append(dialog);
+      document.body.append(overlay);
+    });
+  }
+
+  private async deleteFolder(folderId: string): Promise<void> {
+    const confirmed = await this.confirmDialog('删除该文件夹及其子文件夹？文件夹内引用会一并移除，但不会删除 DeepSeek 原始会话。');
+    if (!confirmed) return;
     this.store.deleteFolder(folderId);
     this.persistAndRender();
   }
 
-  private addCurrentConversation(preferredFolderId?: string): void {
+  private async addCurrentConversation(preferredFolderId?: string): Promise<void> {
     const conversation = currentConversation();
     if (!conversation) {
-      alert('当前页面不是 DeepSeek 会话页。');
+      await this.alertDialog('当前页面不是 DeepSeek 会话页。');
       return;
     }
 
