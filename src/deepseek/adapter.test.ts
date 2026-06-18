@@ -55,7 +55,7 @@ describe('deepseek adapter', () => {
     const target = findFolderInsertionTarget();
 
     expect(target?.sidebar.tagName).toBe('ASIDE');
-    expect((target?.before as HTMLElement | null)?.getAttribute('data-testid')).toBe('history');
+    expect((target?.before as HTMLElement | null)?.tagName).toBe('BUTTON');
   });
 
   it('finds the native row container for a conversation anchor', () => {

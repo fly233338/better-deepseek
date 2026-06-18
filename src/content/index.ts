@@ -253,8 +253,8 @@ class BetterDeepSeekFolders {
     }
   }
 
-  private createFolder(parentId: string | null): void {
-    const name = prompt(parentId ? '子文件夹名称' : '文件夹名称', '新文件夹');
+  private async createFolder(parentId: string | null): Promise<void> {
+    const name = await this.promptDialog(parentId ? '子文件夹名称' : '文件夹名称', '新文件夹');
     if (name === null) return;
 
     try {
@@ -265,11 +265,60 @@ class BetterDeepSeekFolders {
     }
   }
 
-  private renameFolder(folder: Folder): void {
-    const name = prompt('重命名文件夹', folder.name);
+  private async renameFolder(folder: Folder): Promise<void> {
+    const name = await this.promptDialog('重命名文件夹', folder.name);
     if (name === null) return;
     this.store.renameFolder(folder.id, name);
     this.persistAndRender();
+  }
+
+  private promptDialog(title: string, initialValue: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'bd-dialog-overlay';
+
+      const dialog = document.createElement('div');
+      dialog.className = 'bd-dialog';
+
+      const label = document.createElement('div');
+      label.className = 'bd-dialog-label';
+      label.textContent = title;
+
+      const input = document.createElement('input');
+      input.className = 'bd-dialog-input';
+      input.type = 'text';
+      input.value = initialValue;
+
+      const actions = document.createElement('div');
+      actions.className = 'bd-dialog-actions';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'bd-dialog-btn bd-dialog-cancel';
+      cancelBtn.textContent = '取消';
+
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'bd-dialog-btn bd-dialog-confirm';
+      confirmBtn.textContent = '确定';
+
+      const cleanup = (result: string | null) => {
+        overlay.remove();
+        resolve(result);
+      };
+
+      cancelBtn.addEventListener('click', () => cleanup(null));
+      confirmBtn.addEventListener('click', () => cleanup(input.value.trim() || null));
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmBtn.click();
+        if (e.key === 'Escape') cancelBtn.click();
+      });
+
+      actions.append(cancelBtn, confirmBtn);
+      dialog.append(label, input, actions);
+      overlay.append(dialog);
+      document.body.append(overlay);
+
+      requestAnimationFrame(() => input.focus());
+    });
   }
 
   private deleteFolder(folderId: string): void {

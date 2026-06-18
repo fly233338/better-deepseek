@@ -210,3 +210,76 @@
 .bd-native-hidden {
   display: none !important;
 }
+
+.bd-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.bd-dialog {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  min-width: 260px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.bd-dialog-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 12px;
+}
+
+.bd-dialog-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+}
+
+.bd-dialog-input:focus {
+  border-color: #4f7cff;
+  box-shadow: 0 0 0 2px rgba(79, 124, 255, 0.15);
+}
+
+.bd-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.bd-dialog-btn {
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.bd-dialog-cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.bd-dialog-cancel:hover {
+  background: #e5e7eb;
+}
+
+.bd-dialog-confirm {
+  background: #4f7cff;
+  color: #fff;
+}
+
+.bd-dialog-confirm:hover {
+  background: #3b6ae0;
+}

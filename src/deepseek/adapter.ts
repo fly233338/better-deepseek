@@ -82,7 +82,7 @@ export function findFolderInsertionTarget(): FolderInsertionTarget | null {
   const sidebar = findSidebar();
   if (!sidebar) return null;
 
-  return { sidebar, before: sidebar.firstChild };
+  return { sidebar, before: sidebar.firstElementChild ?? sidebar.firstChild };
 }
 
 export function findConversationAnchors(root: ParentNode = document): HTMLAnchorElement[] {
