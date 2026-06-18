@@ -77,6 +77,7 @@ export class FolderStore {
   moveFolder(folderId: FolderId, parentId: FolderId | null): void {
     if (folderId === parentId) return;
     const folder = this.requireFolder(folderId);
+    const sourceParentId = folder.parentId;
     if (parentId && this.getDepth(parentId) >= MAX_DEPTH) {
       throw new Error('最多支持两级文件夹');
     }
@@ -85,7 +86,52 @@ export class FolderStore {
     }
 
     folder.parentId = parentId;
+    folder.sortIndex = this.data.folders.filter(
+      (candidate) => candidate.parentId === parentId && candidate.id !== folderId,
+    ).length;
     folder.updatedAt = Date.now();
+    this.reindexFolders(sourceParentId);
+    this.reindexFolders(parentId);
+  }
+
+  moveFolderToPosition(
+    folderId: FolderId,
+    targetParentId: FolderId | null,
+    targetFolderId: FolderId,
+    placement: 'before' | 'after',
+  ): void {
+    if (folderId === targetFolderId || folderId === targetParentId) return;
+
+    const folder = this.requireFolder(folderId);
+    const target = this.requireFolder(targetFolderId);
+    if (target.parentId !== targetParentId) {
+      throw new Error('Target folder parent mismatch');
+    }
+    if (targetParentId && this.getDepth(targetParentId) >= MAX_DEPTH) {
+      throw new Error('Max folder depth is two levels');
+    }
+    if (this.data.folders.some((candidate) => candidate.parentId === folderId && targetParentId)) {
+      throw new Error('Folders with children can only move to the root level');
+    }
+
+    const sourceParentId = folder.parentId;
+    folder.parentId = targetParentId;
+    folder.updatedAt = Date.now();
+
+    const siblings = this.sortedFoldersByParent(targetParentId).filter(
+      (candidate) => candidate.id !== folderId,
+    );
+    const targetIndex = siblings.findIndex((candidate) => candidate.id === targetFolderId);
+    const insertIndex =
+      targetIndex === -1 ? siblings.length : targetIndex + (placement === 'after' ? 1 : 0);
+    siblings.splice(insertIndex, 0, folder);
+    siblings.forEach((candidate, index) => {
+      candidate.sortIndex = index;
+    });
+
+    if (sourceParentId !== targetParentId) {
+      this.reindexFolders(sourceParentId);
+    }
   }
 
   addConversation(folderId: FolderId, conversation: ConversationReference): void {
@@ -157,12 +203,7 @@ export class FolderStore {
   }
 
   foldersByParent(parentId: FolderId | null): Folder[] {
-    return this.data.folders
-      .filter((folder) => folder.parentId === parentId)
-      .sort((a, b) => {
-        const pinnedOrder = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned));
-        return pinnedOrder || a.sortIndex - b.sortIndex || a.createdAt - b.createdAt;
-      });
+    return this.sortedFoldersByParent(parentId).map((folder) => ({ ...folder }));
   }
 
   conversations(folderId: FolderId): ConversationReference[] {
@@ -207,6 +248,21 @@ export class FolderStore {
         sortIndex: index,
       }),
     );
+  }
+
+  private reindexFolders(parentId: FolderId | null): void {
+    this.sortedFoldersByParent(parentId).forEach((folder, index) => {
+      folder.sortIndex = index;
+    });
+  }
+
+  private sortedFoldersByParent(parentId: FolderId | null): Folder[] {
+    return this.data.folders
+      .filter((folder) => folder.parentId === parentId)
+      .sort((a, b) => {
+        const pinnedOrder = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned));
+        return pinnedOrder || a.sortIndex - b.sortIndex || a.createdAt - b.createdAt;
+      });
   }
 
   private requireFolder(folderId: FolderId): Folder {

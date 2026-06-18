@@ -35,6 +35,13 @@
 - Behavior: filed conversations can be dragged before or after another filed conversation. The store reindexes source and target folders after same-folder reorder or cross-folder moves.
 - Verification: `npm run test` covers same-folder reorder and cross-folder insertion with normalized `sortIndex` values.
 
+## Folder Reorder
+
+- Status: implemented.
+- Key files: `src/core/folderStore.ts`, `src/content/index.ts`, `src/content/styles.css`.
+- Behavior: dragging a folder to the top or bottom edge of another folder row reorders it relative to that row. Dropping in the middle keeps the existing "move into folder" behavior.
+- Verification: `npm run test` covers same-parent folder reorder and cross-parent insertion with normalized `sortIndex` values.
+
 ## Sidebar Settings
 
 - Status: implemented.

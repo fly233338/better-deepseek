@@ -115,6 +115,41 @@ describe('FolderStore', () => {
     ]);
   });
 
+  it('reorders folders within the same parent', () => {
+    const store = new FolderStore();
+    store.createFolder('First');
+    const second = store.createFolder('Second');
+    const third = store.createFolder('Third');
+
+    store.moveFolderToPosition(third.id, null, second.id, 'before');
+
+    expect(store.foldersByParent(null).map((folder) => folder.name)).toEqual([
+      'First',
+      'Third',
+      'Second',
+    ]);
+    expect(store.foldersByParent(null).map((folder) => folder.sortIndex)).toEqual([0, 1, 2]);
+  });
+
+  it('moves folders between parents at a target position', () => {
+    const store = new FolderStore();
+    const parent = store.createFolder('Parent');
+    const target = store.createFolder('Target');
+    const childA = store.createFolder('Child A', parent.id);
+    store.createFolder('Child B', parent.id);
+
+    store.moveFolderToPosition(childA.id, null, target.id, 'after');
+
+    expect(store.foldersByParent(parent.id).map((folder) => folder.name)).toEqual(['Child B']);
+    expect(store.foldersByParent(parent.id).map((folder) => folder.sortIndex)).toEqual([0]);
+    expect(store.foldersByParent(null).map((folder) => folder.name)).toEqual([
+      'Parent',
+      'Target',
+      'Child A',
+    ]);
+    expect(store.foldersByParent(null).map((folder) => folder.sortIndex)).toEqual([0, 1, 2]);
+  });
+
   it('stores folder colors', () => {
     const store = new FolderStore();
     const folder = store.createFolder('Colored');

@@ -152,7 +152,7 @@ class BetterDeepSeekFolders {
       const payload: DragPayload = { type: 'folder', folderId: folder.id };
       event.dataTransfer?.setData(DRAG_MIME, JSON.stringify(payload));
     });
-    this.makeConversationDropTarget(row, folder.id);
+    this.makeFolderDropTarget(row, folder);
 
     const toggle = this.iconButton(
       folder.isExpanded ? 'chevronDown' : 'chevronRight',
@@ -279,32 +279,43 @@ class BetterDeepSeekFolders {
     return row;
   }
 
-  private makeConversationDropTarget(element: HTMLElement, folderId: string): void {
+  private makeFolderDropTarget(element: HTMLElement, folder: Folder): void {
     element.addEventListener('dragover', (event) => {
-      if (this.eventHasDragPayload(event)) {
-        event.preventDefault();
-        element.classList.add('bd-drop-target');
-      }
+      if (!this.eventHasDragPayload(event)) return;
+
+      event.preventDefault();
+      const placement = this.getFolderDropPlacement(event, element);
+      element.classList.toggle('bd-reorder-before', placement === 'before');
+      element.classList.toggle('bd-drop-target', placement === 'inside');
+      element.classList.toggle('bd-reorder-after', placement === 'after');
     });
 
     element.addEventListener('dragleave', () => {
-      element.classList.remove('bd-drop-target');
+      this.clearFolderDropState(element);
     });
 
     element.addEventListener('drop', async (event) => {
       const payload = this.readDragPayload(event);
-      element.classList.remove('bd-drop-target');
+      const placement = this.getFolderDropPlacement(event, element);
+      this.clearFolderDropState(element);
       if (!payload) return;
 
       event.preventDefault();
       try {
         if (payload.type === 'conversation') {
-          this.store.moveConversation(payload.sourceFolderId, folderId, payload.conversation);
+          this.store.moveConversation(payload.sourceFolderId, folder.id, payload.conversation);
+        } else if (placement === 'inside') {
+          this.store.moveFolder(payload.folderId, folder.id);
         } else {
-          this.store.moveFolder(payload.folderId, folderId);
+          this.store.moveFolderToPosition(
+            payload.folderId,
+            folder.parentId,
+            folder.id,
+            placement,
+          );
         }
       } catch (error) {
-        await this.alertDialog(error instanceof Error ? error.message : '移动失败');
+        await this.alertDialog(error instanceof Error ? error.message : '绉诲姩澶辫触');
         return;
       }
       this.persistAndRender();
@@ -354,6 +365,19 @@ class BetterDeepSeekFolders {
 
   private clearConversationReorderState(element: HTMLElement): void {
     element.classList.remove('bd-reorder-before', 'bd-reorder-after');
+  }
+
+  private getFolderDropPlacement(event: DragEvent, element: HTMLElement): 'before' | 'inside' | 'after' {
+    const rect = element.getBoundingClientRect();
+    const offset = event.clientY - rect.top;
+    const edgeSize = Math.min(12, rect.height * 0.3);
+    if (offset < edgeSize) return 'before';
+    if (offset > rect.height - edgeSize) return 'after';
+    return 'inside';
+  }
+
+  private clearFolderDropState(element: HTMLElement): void {
+    element.classList.remove('bd-reorder-before', 'bd-drop-target', 'bd-reorder-after');
   }
 
   private eventHasDragPayload(event: DragEvent): boolean {
