@@ -14,9 +14,9 @@ Better DeepSeek is currently a Manifest V3 browser extension that injects local 
 
 1. The content script loads `FolderData` from storage.
 2. `FolderStore` mutates folders and conversation references in memory.
-3. The injected panel waits for DeepSeek's native sidebar and renders before the history section.
+3. The injected panel waits for DeepSeek's native sidebar and renders before the history section with a Voyager-inspired folder toolbar and tree layout.
 4. Dragging a DeepSeek history anchor or an existing folder conversation emits a typed drag payload.
-5. Dropping onto a folder moves the conversation reference and schedules a storage save.
+5. Dropping onto a folder moves the conversation reference, schedules a storage save, and hides the matching native DeepSeek history row outside the folder tree.
 
 ## Current Scope
 
@@ -26,6 +26,8 @@ Better DeepSeek is currently a Manifest V3 browser extension that injects local 
 - Move conversations between folders.
 - Click folder conversations to navigate back to the original DeepSeek chat.
 - No floating fallback: the folder panel embeds into the DeepSeek sidebar once a reliable sidebar target exists.
+- Voyager-inspired sidebar styling with a light blue/white DeepSeek palette, rounded icon buttons, folder rows, and selected conversation pills.
+- Hide native history rows once their conversations are collected into a Better DeepSeek folder; removing the folder reference reveals them again.
 
 ## Reference Policy
 

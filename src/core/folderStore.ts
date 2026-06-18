@@ -120,6 +120,18 @@ export class FolderStore {
     );
   }
 
+  conversationIdsInFolders(): Set<string> {
+    const ids = new Set<string>();
+
+    for (const conversations of Object.values(this.data.folderContents)) {
+      for (const conversation of conversations) {
+        ids.add(conversation.conversationId);
+      }
+    }
+
+    return ids;
+  }
+
   private removeConversationEverywhere(conversationId: string): void {
     for (const folderId of Object.keys(this.data.folderContents)) {
       this.data.folderContents[folderId] = this.data.folderContents[folderId].filter(

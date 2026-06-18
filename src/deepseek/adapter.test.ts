@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   conversationFromAnchor,
   extractConversationId,
-  findFolderInsertionTarget,
   findConversationAnchors,
+  findFolderInsertionTarget,
+  findNativeConversationContainer,
   isDeepSeekChatUrl,
 } from './adapter';
 
@@ -20,12 +21,12 @@ describe('deepseek adapter', () => {
   });
 
   it('builds a conversation reference from a sidebar anchor', () => {
-    document.body.innerHTML = '<a href="https://chat.deepseek.com/chat/s/abc">  方案讨论  </a>';
+    document.body.innerHTML = '<a href="https://chat.deepseek.com/chat/s/abc">Plan</a>';
     const anchor = document.querySelector('a');
 
     expect(conversationFromAnchor(anchor as HTMLAnchorElement)).toMatchObject({
       conversationId: 'abc',
-      title: '方案讨论',
+      title: 'Plan',
       url: 'https://chat.deepseek.com/chat/s/abc',
     });
   });
@@ -55,5 +56,21 @@ describe('deepseek adapter', () => {
 
     expect(target?.sidebar.tagName).toBe('ASIDE');
     expect((target?.before as HTMLElement | null)?.getAttribute('data-testid')).toBe('history');
+  });
+
+  it('finds the native row container for a conversation anchor', () => {
+    document.body.innerHTML = `
+      <aside>
+        <section>
+          <div class="row" data-row="a"><a href="https://chat.deepseek.com/chat/s/a">A</a></div>
+          <div class="row" data-row="b"><a href="https://chat.deepseek.com/chat/s/b">B</a></div>
+        </section>
+      </aside>
+    `;
+
+    const anchor = document.querySelector<HTMLAnchorElement>('a[href$="/a"]');
+    const row = findNativeConversationContainer(anchor as HTMLAnchorElement);
+
+    expect(row.getAttribute('data-row')).toBe('a');
   });
 });

@@ -101,6 +101,22 @@ export function findConversationAnchors(root: ParentNode = document): HTMLAnchor
   return Array.from(byId.values());
 }
 
+export function findNativeConversationContainer(anchor: HTMLAnchorElement): HTMLElement {
+  const sidebar = findSidebar();
+  let current = anchor.parentElement;
+  let candidate: HTMLElement = anchor;
+
+  while (current && current !== sidebar && current !== document.body) {
+    const conversationLinkCount = current.querySelectorAll('a[href*="/chat/s/"]').length;
+    if (conversationLinkCount !== 1) break;
+
+    candidate = current;
+    current = current.parentElement;
+  }
+
+  return candidate;
+}
+
 export function navigateToConversation(url: string): void {
   const matchingAnchor = findConversationAnchors().find((anchor) => {
     return extractConversationId(anchor.href) === extractConversationId(url);

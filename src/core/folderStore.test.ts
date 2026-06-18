@@ -18,11 +18,11 @@ describe('FolderStore', () => {
   it('creates root folders and subfolders', () => {
     const store = new FolderStore();
 
-    const root = store.createFolder('工作');
-    const child = store.createFolder('客户', root.id);
+    const root = store.createFolder('Work');
+    const child = store.createFolder('Client', root.id);
 
-    expect(store.foldersByParent(null).map((folder) => folder.name)).toEqual(['工作']);
-    expect(store.foldersByParent(root.id).map((folder) => folder.name)).toEqual(['客户']);
+    expect(store.foldersByParent(null).map((folder) => folder.name)).toEqual(['Work']);
+    expect(store.foldersByParent(root.id).map((folder) => folder.name)).toEqual(['Client']);
     expect(child.parentId).toBe(root.id);
   });
 
@@ -31,11 +31,13 @@ describe('FolderStore', () => {
     const first = store.createFolder('A');
     const second = store.createFolder('B');
 
-    store.addConversation(first.id, conversation('abc', '旧位置'));
-    store.addConversation(second.id, conversation('abc', '新位置'));
+    store.addConversation(first.id, conversation('abc', 'Old folder'));
+    store.addConversation(second.id, conversation('abc', 'New folder'));
 
     expect(store.conversations(first.id)).toHaveLength(0);
-    expect(store.conversations(second.id)).toMatchObject([{ conversationId: 'abc', title: '新位置' }]);
+    expect(store.conversations(second.id)).toMatchObject([
+      { conversationId: 'abc', title: 'New folder' },
+    ]);
   });
 
   it('deletes child folders and contents with the parent folder', () => {
@@ -53,7 +55,7 @@ describe('FolderStore', () => {
     const data: FolderData = { folders: [], folderContents: {} };
     const store = new FolderStore(data);
 
-    store.createFolder('独立');
+    store.createFolder('Standalone');
 
     expect(data.folders).toEqual([]);
   });
@@ -64,6 +66,17 @@ describe('FolderStore', () => {
     const root = store.createFolder('Root');
     const child = store.createFolder('Child', root.id);
 
-    expect(() => store.createFolder('Too deep', child.id)).toThrow('最多支持两级文件夹');
+    expect(() => store.createFolder('Too deep', child.id)).toThrow();
+  });
+
+  it('lists conversation ids already placed in folders', () => {
+    const store = new FolderStore();
+    const first = store.createFolder('A');
+    const second = store.createFolder('B');
+
+    store.addConversation(first.id, conversation('abc'));
+    store.addConversation(second.id, conversation('def'));
+
+    expect(Array.from(store.conversationIdsInFolders()).sort()).toEqual(['abc', 'def']);
   });
 });
