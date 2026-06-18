@@ -11,8 +11,8 @@
 
 - Status: implemented initial version.
 - Key files: `src/deepseek/adapter.ts`, `src/content/index.ts`.
-- Behavior: extracts `/chat/s/{id}` conversations from DeepSeek links, finds a likely sidebar, enhances native history anchors for drag-and-drop, and navigates by native click or URL fallback.
-- Verification: `npm run test` covers URL parsing, anchor extraction, and deduplication. Real logged-in DeepSeek DOM still needs manual validation.
+- Behavior: extracts `/chat/s/{id}` conversations from DeepSeek links, finds the native sidebar insertion target before the history section, enhances native history anchors for drag-and-drop, and navigates by native click or URL fallback.
+- Verification: `npm run test` covers URL parsing, anchor extraction, deduplication, and sidebar insertion-target selection. Real logged-in DeepSeek DOM still needs manual validation.
 
 ## Extension Build
 

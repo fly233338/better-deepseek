@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   conversationFromAnchor,
   extractConversationId,
+  findFolderInsertionTarget,
   findConversationAnchors,
   isDeepSeekChatUrl,
 } from './adapter';
@@ -37,5 +38,22 @@ describe('deepseek adapter', () => {
     `;
 
     expect(findConversationAnchors().map((anchor) => anchor.textContent)).toEqual(['A', 'B']);
+  });
+
+  it('finds an insertion target before the native history section', () => {
+    document.body.innerHTML = `
+      <aside>
+        <button>New chat</button>
+        <section data-testid="history">
+          <a href="https://chat.deepseek.com/chat/s/a">A</a>
+          <a href="https://chat.deepseek.com/chat/s/b">B</a>
+        </section>
+      </aside>
+    `;
+
+    const target = findFolderInsertionTarget();
+
+    expect(target?.sidebar.tagName).toBe('ASIDE');
+    expect((target?.before as HTMLElement | null)?.getAttribute('data-testid')).toBe('history');
   });
 });

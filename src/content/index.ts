@@ -12,7 +12,7 @@ import {
   conversationFromAnchor,
   currentConversation,
   findConversationAnchors,
-  findSidebar,
+  findFolderInsertionTarget,
   navigateToConversation,
 } from '../deepseek/adapter';
 
@@ -33,8 +33,9 @@ class BetterDeepSeekFolders {
   }
 
   private render(): void {
-    const sidebar = findSidebar();
-    const root = this.ensureRoot(sidebar);
+    const root = this.ensureRoot();
+    if (!root) return;
+
     root.innerHTML = '';
 
     const header = document.createElement('div');
@@ -72,10 +73,16 @@ class BetterDeepSeekFolders {
     }
   }
 
-  private ensureRoot(sidebar: HTMLElement | null): HTMLElement {
+  private ensureRoot(): HTMLElement | null {
+    const target = findFolderInsertionTarget();
+    if (!target) return null;
+
     const existing = document.getElementById(ROOT_ID);
     if (existing) {
-      existing.classList.toggle('bd-floating', !sidebar);
+      if (target.before === existing) return existing;
+      if (existing.parentElement !== target.sidebar || existing.nextSibling !== target.before) {
+        target.sidebar.insertBefore(existing, target.before);
+      }
       return existing;
     }
 
@@ -83,12 +90,7 @@ class BetterDeepSeekFolders {
     root.id = ROOT_ID;
     root.className = 'bd-folder-root';
 
-    if (sidebar) {
-      sidebar.prepend(root);
-    } else {
-      root.classList.add('bd-floating');
-      document.documentElement.append(root);
-    }
+    target.sidebar.insertBefore(root, target.before);
 
     return root;
   }
@@ -305,7 +307,9 @@ class BetterDeepSeekFolders {
     this.observer?.disconnect();
     this.observer = new MutationObserver(() => {
       this.enhanceNativeConversationRows();
-      if (!document.getElementById(ROOT_ID)) this.render();
+      const root = document.getElementById(ROOT_ID);
+      const target = findFolderInsertionTarget();
+      if (!root || (target && root.parentElement !== target.sidebar)) this.render();
     });
     this.observer.observe(document.body, { childList: true, subtree: true });
   }
