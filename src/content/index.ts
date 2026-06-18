@@ -78,7 +78,7 @@ class BetterDeepSeekFolders {
         this.store.setSettings({ hideEnabled: this.hideEnabled });
         this.persistAndRender();
       }, this.hideEnabled),
-      this.iconButton('user', 'Better DeepSeek 本地文件夹', () => undefined, true),
+      this.iconButton('user', 'Better DeepSeek 本地文件夹', () => undefined),
       this.iconButton('folder', '新建文件夹', () => this.createFolder(null)),
       this.iconButton('cloud', '云同步暂未启用', () => undefined),
       this.iconButton('settings', '设置暂未启用', () => undefined),
