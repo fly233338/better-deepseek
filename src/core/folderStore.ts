@@ -62,6 +62,12 @@ export class FolderStore {
     folder.updatedAt = Date.now();
   }
 
+  togglePinned(folderId: FolderId): void {
+    const folder = this.requireFolder(folderId);
+    folder.pinned = !folder.pinned;
+    folder.updatedAt = Date.now();
+  }
+
   moveFolder(folderId: FolderId, parentId: FolderId | null): void {
     if (folderId === parentId) return;
     const folder = this.requireFolder(folderId);
@@ -112,7 +118,10 @@ export class FolderStore {
   foldersByParent(parentId: FolderId | null): Folder[] {
     return this.data.folders
       .filter((folder) => folder.parentId === parentId)
-      .sort((a, b) => a.sortIndex - b.sortIndex || a.createdAt - b.createdAt);
+      .sort((a, b) => {
+        const pinnedOrder = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned));
+        return pinnedOrder || a.sortIndex - b.sortIndex || a.createdAt - b.createdAt;
+      });
   }
 
   conversations(folderId: FolderId): ConversationReference[] {

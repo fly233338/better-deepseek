@@ -92,4 +92,26 @@ describe('FolderStore', () => {
     expect(store.getSettings()).toEqual({ hideEnabled: false });
     expect(store.snapshot().settings).toEqual({ hideEnabled: false });
   });
+
+  it('sorts pinned folders before unpinned folders within the same parent', () => {
+    const store = new FolderStore();
+    store.createFolder('First');
+    const second = store.createFolder('Second');
+    const parent = store.createFolder('Parent');
+    store.createFolder('Child A', parent.id);
+    const childB = store.createFolder('Child B', parent.id);
+
+    store.togglePinned(second.id);
+    store.togglePinned(childB.id);
+
+    expect(store.foldersByParent(null).map((folder) => folder.name)).toEqual([
+      'Second',
+      'First',
+      'Parent',
+    ]);
+    expect(store.foldersByParent(parent.id).map((folder) => folder.name)).toEqual([
+      'Child B',
+      'Child A',
+    ]);
+  });
 });

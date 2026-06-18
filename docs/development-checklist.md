@@ -2,10 +2,10 @@
 
 ## Folder Management Core
 
-- Status: implemented initial version.
+- Status: implemented and extended.
 - Key files: `src/core/folderStore.ts`, `src/core/types.ts`, `src/core/storage.ts`.
-- Behavior: creates root folders and one level of subfolders, renames/deletes folders, moves conversations, persists folder data.
-- Verification: `npm run test` covers folder creation, move dedupe, recursive deletion, immutability, and nesting limit.
+- Behavior: creates root folders and one level of subfolders, renames/deletes folders, moves conversations, pins folders, and persists folder data.
+- Verification: `npm run test` covers folder creation, move dedupe, recursive deletion, immutability, nesting limit, and pinned folder ordering.
 
 ## DeepSeek Web Adapter
 
