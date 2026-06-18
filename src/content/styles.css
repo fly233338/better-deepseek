@@ -303,20 +303,8 @@
   background: #eef6ff;
 }
 
-.bd-native-save-button {
-  width: 22px;
-  height: 22px;
-  margin-left: 4px;
-  color: #708098;
-}
-
 .bd-native-select {
   margin-left: 4px;
-}
-
-.bd-native-save-button svg {
-  width: 15px;
-  height: 15px;
 }
 
 .bd-native-hidden {

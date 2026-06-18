@@ -580,23 +580,6 @@ class BetterDeepSeekFolders {
     this.persistAndRender();
   }
 
-  private async addCurrentConversation(preferredFolderId?: string): Promise<void> {
-    const conversation = currentConversation();
-    if (!conversation) {
-      await this.alertDialog('当前页面不是 DeepSeek 会话页。');
-      return;
-    }
-
-    const targetFolderId = preferredFolderId ?? this.store.foldersByParent(null)[0]?.id;
-    if (!targetFolderId) {
-      const folder = this.store.createFolder('默认');
-      this.store.addConversation(folder.id, conversation);
-    } else {
-      this.store.addConversation(targetFolderId, conversation);
-    }
-    this.persistAndRender();
-  }
-
   private async moveSelectedConversations(): Promise<void> {
     if (!this.featureEnabled('multiSelect')) return;
 
@@ -1108,22 +1091,7 @@ class BetterDeepSeekFolders {
         existingSelect?.remove();
       }
 
-      if (host.querySelector('.bd-native-save-button')) continue;
-
-      const button = this.iconButton('plus', '保存到第一个 Better DeepSeek 文件夹', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        this.addNativeConversation(conversation);
-      });
-      button.classList.add('bd-native-save-button');
-      host.append(button);
     }
-  }
-
-  private addNativeConversation(conversation: ConversationReference): void {
-    const folder = this.store.foldersByParent(null)[0] ?? this.store.createFolder('默认');
-    this.store.addConversation(folder.id, conversation);
-    this.persistAndRender();
   }
 
   private refreshNativeConversationVisibility(): void {
