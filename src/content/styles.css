@@ -277,6 +277,17 @@
   margin-top: 16px;
 }
 
+.bd-dialog-secondary {
+  width: 100%;
+  margin-top: 8px;
+  background: #eef5ff;
+  color: #3563c9;
+}
+
+.bd-dialog-secondary:hover {
+  background: #e0ebff;
+}
+
 .bd-setting-row {
   display: flex;
   align-items: center;

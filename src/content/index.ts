@@ -1,6 +1,11 @@
 import './styles.css';
 
 import { FolderStore } from '../core/folderStore';
+import {
+  createFolderExportPayload,
+  downloadJson,
+  generateFolderExportFilename,
+} from '../core/folderImportExport';
 import { ExtensionFolderStorage } from '../core/storage';
 import type {
   ConversationDragPayload,
@@ -441,6 +446,14 @@ class BetterDeepSeekFolders {
 
       row.append(copy, switchTrack);
 
+      const exportButton = document.createElement('button');
+      exportButton.className = 'bd-dialog-btn bd-dialog-secondary';
+      exportButton.type = 'button';
+      exportButton.textContent = '导出文件夹 JSON';
+      exportButton.addEventListener('click', () => {
+        this.exportFolders();
+      });
+
       const actions = document.createElement('div');
       actions.className = 'bd-dialog-actions';
 
@@ -466,10 +479,15 @@ class BetterDeepSeekFolders {
       });
 
       actions.append(cancelBtn, confirmBtn);
-      dialog.append(title, row, actions);
+      dialog.append(title, row, exportButton, actions);
       overlay.append(dialog);
       document.body.append(overlay);
     });
+  }
+
+  private exportFolders(): void {
+    const payload = createFolderExportPayload(this.store.snapshot());
+    downloadJson(payload, generateFolderExportFilename());
   }
 
   private promptDialog(title: string, initialValue: string): Promise<string | null> {

@@ -46,8 +46,15 @@
 
 - Status: not implemented.
 - Key files: none yet.
-- Behavior: there is currently no import/export UI or parser in Better DeepSeek. The old top-level folder icon was only a new-folder shortcut, not an import command.
-- Verification: `rg "import|export" src` confirms there is no folder import/export implementation.
+- Behavior: there is currently no import UI or parser in Better DeepSeek.
+- Verification: `rg "importFrom|validateFolder" src` confirms folder import is not implemented yet.
+
+## Folder Export
+
+- Status: implemented.
+- Key files: `src/core/folderImportExport.ts`, `src/content/index.ts`.
+- Behavior: settings includes an export button that downloads `better-deepseek.folders.v1` JSON containing folders, folder contents, and settings.
+- Verification: `npm run test` covers payload and filename generation.
 
 ## Extension Build
 
