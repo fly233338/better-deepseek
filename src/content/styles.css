@@ -141,25 +141,25 @@
 
 .bd-conversation-row {
   position: relative;
-  min-height: 40px;
-  margin: 2px 4px 2px calc(26px + var(--bd-level, 0) * 18px);
-  padding: 0 8px 0 18px;
-  gap: 10px;
-  border-radius: 10px;
+  min-height: 30px;
+  margin: 1px 4px 1px calc(20px + var(--bd-level, 0) * 12px);
+  padding: 0 4px 0 12px;
+  gap: 6px;
+  border-radius: 6px;
   background: linear-gradient(90deg, #dbfff0 0, #f7fbff 46%, #ffffff 100%);
   color: #273449;
   cursor: pointer;
   font-size: 12px;
-  font-weight: 580;
+  font-weight: 500;
 }
 
 .bd-conversation-row::before {
   content: "";
   position: absolute;
-  top: 8px;
-  bottom: 8px;
+  top: 5px;
+  bottom: 5px;
   left: 0;
-  width: 5px;
+  width: 3px;
   border-radius: 999px;
   background: #66e2aa;
 }
