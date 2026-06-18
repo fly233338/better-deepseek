@@ -71,6 +71,12 @@
   border-color: #8db8ff;
 }
 
+.bd-folder-search-empty {
+  color: #8792a3;
+  font-size: 12px;
+  padding: 8px 10px 8px calc(20px + var(--bd-level, 0) * 12px);
+}
+
 .bd-selection-toolbar {
   display: flex;
   align-items: center;

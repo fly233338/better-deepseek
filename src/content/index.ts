@@ -51,10 +51,7 @@ class BetterDeepSeekFolders {
   private store = new FolderStore();
   private observer: MutationObserver | null = null;
   private saveTimer: number | null = null;
-  private searchTimer: number | null = null;
   private readonly selectedConversations = new Map<string, SelectedConversation>();
-  private searchQuery = '';
-  private searchInput: HTMLInputElement | null = null;
   private folderSearchQueries = new Map<string, string>();
   private openFolderSearchIds = new Set<string>();
   private hideEnabled = true;
@@ -72,15 +69,12 @@ class BetterDeepSeekFolders {
     const root = this.ensureRoot();
     if (!root) return;
 
-    const searchHadFocus = this.searchInput === document.activeElement;
-    const cursorPos = searchHadFocus ? this.searchInput!.selectionStart : null;
-
     if (!this.featureEnabled('folderSearch')) this.folderSearchQueries.clear();
 
     root.classList.toggle('bd-feature-pin-off', !this.featureEnabled('pinFolders'));
     root.classList.toggle('bd-feature-colors-off', !this.featureEnabled('folderColors'));
 
-    const query = this.featureEnabled('folderSearch') ? this.normalizedSearchQuery() : '';
+    const query = '';
     root.innerHTML = '';
     root.append(this.headerElement());
 
@@ -92,20 +86,13 @@ class BetterDeepSeekFolders {
     if (folders.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'bd-empty';
-      empty.textContent = query ? '没有匹配的文件夹或会话。' : '新建文件夹后，可拖入 DeepSeek 历史会话。';
+      empty.textContent = '新建文件夹后，可拖入 DeepSeek 历史会话。';
       list.append(empty);
       return;
     }
 
     for (const folder of folders) {
       list.append(this.folderElement(folder, 0, query));
-    }
-
-    if (searchHadFocus && this.searchInput) {
-      this.searchInput.focus();
-      if (cursorPos !== null) {
-        this.searchInput.setSelectionRange(cursorPos, cursorPos);
-      }
     }
   }
 
@@ -125,25 +112,6 @@ class BetterDeepSeekFolders {
     );
 
     header.append(title, actions);
-    if (this.featureEnabled('folderSearch')) {
-      this.searchInput = document.createElement('input');
-      this.searchInput.className = 'bd-folder-search';
-      this.searchInput.type = 'search';
-      this.searchInput.placeholder = '搜索文件夹和会话';
-      this.searchInput.value = this.searchQuery;
-      this.searchInput.addEventListener('input', (event) => {
-        if ((event as InputEvent).isComposing) return;
-        if (this.searchTimer) window.clearTimeout(this.searchTimer);
-        this.searchTimer = window.setTimeout(() => {
-          this.searchQuery = this.searchInput!.value;
-          this.render();
-        }, 80);
-      });
-      header.append(this.searchInput);
-    } else {
-      this.searchInput = null;
-      this.searchQuery = '';
-    }
     const selectionBar = this.selectionToolbarElement();
     if (selectionBar) header.append(selectionBar);
     return header;
@@ -358,6 +326,12 @@ class BetterDeepSeekFolders {
       for (const child of this.visibleFoldersByParent(folder.id, query)) {
         block.append(this.folderElement(child, level + 1, query));
       }
+      if (folderQuery && !this.visibleConversations(folder.id, query, folderQuery).length && this.visibleFoldersByParent(folder.id, query).length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'bd-folder-search-empty';
+        empty.textContent = '没有匹配的会话。';
+        block.append(empty);
+      }
     }
 
     return block;
@@ -394,10 +368,6 @@ class BetterDeepSeekFolders {
 
   private textMatchesSearch(value: string, query: string): boolean {
     return value.trim().toLocaleLowerCase().includes(query);
-  }
-
-  private normalizedSearchQuery(): string {
-    return this.searchQuery.trim().toLocaleLowerCase();
   }
 
   private conversationElement(
