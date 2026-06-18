@@ -82,11 +82,7 @@ export function findFolderInsertionTarget(): FolderInsertionTarget | null {
   const sidebar = findSidebar();
   if (!sidebar) return null;
 
-  const historyAnchor = findConversationAnchors(sidebar)[0];
-  if (!historyAnchor) return { sidebar, before: sidebar.firstChild };
-
-  const historySection = findDirectChildContaining(sidebar, historyAnchor);
-  return { sidebar, before: historySection };
+  return { sidebar, before: sidebar.firstChild };
 }
 
 export function findConversationAnchors(root: ParentNode = document): HTMLAnchorElement[] {
