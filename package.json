@@ -1,0 +1,21 @@
+{
+  "name": "better-deepseek",
+  "version": "0.1.0",
+  "description": "Browser extension that adds folder management to DeepSeek web.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/chrome": "^0.1.24",
+    "@types/node": "^24.0.0",
+    "jsdom": "^27.0.0",
+    "typescript": "^5.8.0",
+    "vite": "^7.0.0",
+    "vitest": "^4.0.0"
+  }
+}

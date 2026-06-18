@@ -1,0 +1,120 @@
+.bd-folder-root {
+  box-sizing: border-box;
+  width: calc(100% - 16px);
+  margin: 8px;
+  padding: 8px;
+  border: 1px solid rgba(80, 94, 120, 0.22);
+  border-radius: 8px;
+  background: color-mix(in srgb, canvas 92%, #f4f7fb);
+  color: inherit;
+  font: 13px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.bd-folder-root.bd-floating {
+  position: fixed;
+  z-index: 2147483646;
+  top: 76px;
+  left: 12px;
+  width: 292px;
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+}
+
+.bd-folder-header,
+.bd-folder-row,
+.bd-conversation-row,
+.bd-empty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bd-folder-header {
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.bd-folder-title {
+  font-weight: 650;
+}
+
+.bd-folder-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.bd-button {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid rgba(80, 94, 120, 0.25);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.bd-button:hover,
+.bd-folder-row:hover,
+.bd-conversation-row:hover {
+  background: rgba(70, 110, 190, 0.09);
+}
+
+.bd-folder-list {
+  display: grid;
+  gap: 4px;
+}
+
+.bd-folder-block {
+  border-radius: 6px;
+}
+
+.bd-folder-row,
+.bd-conversation-row {
+  min-height: 28px;
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+
+.bd-folder-row {
+  font-weight: 560;
+}
+
+.bd-folder-row.bd-drop-target {
+  outline: 2px solid #4f8cff;
+  background: rgba(79, 140, 255, 0.12);
+}
+
+.bd-folder-name,
+.bd-conversation-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bd-conversation-row {
+  margin-left: 18px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.bd-empty {
+  min-height: 36px;
+  padding: 4px;
+  color: color-mix(in srgb, currentColor 62%, transparent);
+}
+
+.bd-native-save-button {
+  margin-left: 4px;
+  border: 0;
+  border-radius: 5px;
+  padding: 2px 5px;
+  background: rgba(70, 110, 190, 0.1);
+  color: inherit;
+  cursor: grab;
+  font: 12px/1 system-ui, sans-serif;
+}
