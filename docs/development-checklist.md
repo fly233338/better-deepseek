@@ -44,10 +44,10 @@
 
 ## Folder Import
 
-- Status: not implemented.
-- Key files: none yet.
-- Behavior: there is currently no import UI or parser in Better DeepSeek.
-- Verification: `rg "importFrom|validateFolder" src` confirms folder import is not implemented yet.
+- Status: implemented.
+- Key files: `src/core/folderImportExport.ts`, `src/content/index.ts`.
+- Behavior: settings includes JSON import. Imports validate `better-deepseek.folders.v1`, merge new folders/conversations into existing data, preserve current settings, and save a session backup before applying changes.
+- Verification: `npm run test` covers payload validation, merge behavior, and backup load/save.
 
 ## Folder Export
 

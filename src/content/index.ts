@@ -5,6 +5,11 @@ import {
   createFolderExportPayload,
   downloadJson,
   generateFolderExportFilename,
+  isFolderExportPayload,
+  loadImportBackup,
+  mergeFolderImport,
+  readJsonFile,
+  saveImportBackup,
 } from '../core/folderImportExport';
 import { ExtensionFolderStorage } from '../core/storage';
 import type {
@@ -454,6 +459,38 @@ class BetterDeepSeekFolders {
         this.exportFolders();
       });
 
+      const importInput = document.createElement('input');
+      importInput.type = 'file';
+      importInput.accept = 'application/json,.json';
+      importInput.className = 'bd-file-input';
+      importInput.addEventListener('change', async () => {
+        const file = importInput.files?.[0];
+        if (!file) return;
+
+        await this.importFoldersFromFile(file);
+        overlay.remove();
+        resolve();
+      });
+
+      const importButton = document.createElement('button');
+      importButton.className = 'bd-dialog-btn bd-dialog-secondary';
+      importButton.type = 'button';
+      importButton.textContent = '导入文件夹 JSON';
+      importButton.addEventListener('click', () => {
+        importInput.click();
+      });
+
+      const restoreButton = document.createElement('button');
+      restoreButton.className = 'bd-dialog-btn bd-dialog-secondary';
+      restoreButton.type = 'button';
+      restoreButton.textContent = '恢复导入前备份';
+      restoreButton.disabled = !loadImportBackup();
+      restoreButton.addEventListener('click', async () => {
+        await this.restoreImportBackup();
+        overlay.remove();
+        resolve();
+      });
+
       const actions = document.createElement('div');
       actions.className = 'bd-dialog-actions';
 
@@ -479,7 +516,7 @@ class BetterDeepSeekFolders {
       });
 
       actions.append(cancelBtn, confirmBtn);
-      dialog.append(title, row, exportButton, actions);
+      dialog.append(title, row, exportButton, importButton, restoreButton, importInput, actions);
       overlay.append(dialog);
       document.body.append(overlay);
     });
@@ -488,6 +525,42 @@ class BetterDeepSeekFolders {
   private exportFolders(): void {
     const payload = createFolderExportPayload(this.store.snapshot());
     downloadJson(payload, generateFolderExportFilename());
+  }
+
+  private async importFoldersFromFile(file: File): Promise<void> {
+    try {
+      const parsed = await readJsonFile(file);
+      if (!isFolderExportPayload(parsed)) {
+        await this.alertDialog('导入失败：请选择 Better DeepSeek 导出的文件夹 JSON。');
+        return;
+      }
+
+      const snapshot = this.store.snapshot();
+      saveImportBackup(snapshot);
+      const result = mergeFolderImport(snapshot, parsed);
+      this.store = new FolderStore(result.data);
+      this.hideEnabled = this.store.getSettings().hideEnabled;
+      this.persistAndRender();
+
+      await this.alertDialog(
+        `导入完成：新增 ${result.stats.foldersImported} 个文件夹，新增 ${result.stats.conversationsImported} 个会话。`,
+      );
+    } catch {
+      await this.alertDialog('导入失败：文件不是有效 JSON。');
+    }
+  }
+
+  private async restoreImportBackup(): Promise<void> {
+    const backup = loadImportBackup();
+    if (!backup) {
+      await this.alertDialog('没有可恢复的导入前备份。');
+      return;
+    }
+
+    this.store = new FolderStore(backup);
+    this.hideEnabled = this.store.getSettings().hideEnabled;
+    this.persistAndRender();
+    await this.alertDialog('已恢复到上次导入前的文件夹数据。');
   }
 
   private promptDialog(title: string, initialValue: string): Promise<string | null> {

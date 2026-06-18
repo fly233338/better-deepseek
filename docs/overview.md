@@ -27,7 +27,7 @@ Better DeepSeek is currently a Manifest V3 browser extension that injects local 
 - Pin frequently used folders to the top of their sibling group.
 - Assign preset colors to folders; folder icons and filed conversation accent bars use the folder color.
 - Search folder names and filed conversation titles from the folder header without changing stored data.
-- Export current folder data to `better-deepseek.folders.v1` JSON from settings.
+- Export and import `better-deepseek.folders.v1` JSON from settings; imports merge by default and keep an import-before backup for restore.
 - Click folder conversations to navigate back to the original DeepSeek chat.
 - No floating fallback: the folder panel embeds into the DeepSeek sidebar once a reliable sidebar target exists.
 - Voyager-inspired sidebar styling with a light blue/white DeepSeek palette, rounded icon buttons, folder rows, and selected conversation pills.
@@ -41,5 +41,5 @@ Better DeepSeek is currently a Manifest V3 browser extension that injects local 
 ## Roadmap
 
 - Probe real DeepSeek DOM variants after login and tighten selectors where needed.
-- Add import for `FolderData`.
+- Add drag reorder for folder contents and folders.
 - Add account isolation if DeepSeek exposes multiple account contexts in the URL or page state.
