@@ -52,6 +52,25 @@
   box-shadow: 0 0 0 2px rgba(141, 184, 255, 0.18);
 }
 
+.bd-folder-inner-search {
+  width: calc(100% - 40px);
+  box-sizing: border-box;
+  height: 24px;
+  margin: 2px 4px 2px calc(20px + var(--bd-level, 0) * 12px);
+  border: 1px solid #e0e8f3;
+  border-radius: 6px;
+  padding: 0 6px;
+  background: #f9fcff;
+  color: #273449;
+  font: inherit;
+  font-size: 11px;
+  outline: none;
+}
+
+.bd-folder-inner-search:focus {
+  border-color: #8db8ff;
+}
+
 .bd-selection-toolbar {
   display: flex;
   align-items: center;
@@ -218,7 +237,7 @@
   padding: 0 4px 0 12px;
   gap: 6px;
   border-radius: 6px;
-  background: linear-gradient(90deg, #dbfff0 0, #f7fbff 46%, #ffffff 100%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--bd-folder-accent, #66e2aa) 12%, #f0fffa) 0, #f7fbff 46%, #ffffff 100%);
   color: #273449;
   cursor: pointer;
   font-size: 12px;
@@ -245,7 +264,7 @@
 }
 
 .bd-current-conversation {
-  background: linear-gradient(90deg, #c8ffe8 0, #eef8ff 48%, #ffffff 100%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--bd-folder-accent, #66e2aa) 20%, #e8fff5) 0, #eef8ff 48%, #ffffff 100%);
 }
 
 .bd-chat-symbol {

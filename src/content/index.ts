@@ -54,6 +54,8 @@ class BetterDeepSeekFolders {
   private searchTimer: number | null = null;
   private readonly selectedConversations = new Map<string, SelectedConversation>();
   private searchQuery = '';
+  private searchInput: HTMLInputElement | null = null;
+  private folderSearchQueries = new Map<string, string>();
   private hideEnabled = true;
 
   async mount(): Promise<void> {
@@ -68,6 +70,12 @@ class BetterDeepSeekFolders {
   private render(): void {
     const root = this.ensureRoot();
     if (!root) return;
+
+    const searchHadFocus = this.searchInput === document.activeElement;
+    const cursorPos = searchHadFocus ? this.searchInput!.selectionStart : null;
+
+    if (!this.featureEnabled('folderSearch')) this.folderSearchQueries.clear();
+
     root.classList.toggle('bd-feature-pin-off', !this.featureEnabled('pinFolders'));
     root.classList.toggle('bd-feature-colors-off', !this.featureEnabled('folderColors'));
 
@@ -91,6 +99,13 @@ class BetterDeepSeekFolders {
     for (const folder of folders) {
       list.append(this.folderElement(folder, 0, query));
     }
+
+    if (searchHadFocus && this.searchInput) {
+      this.searchInput.focus();
+      if (cursorPos !== null) {
+        this.searchInput.setSelectionRange(cursorPos, cursorPos);
+      }
+    }
   }
 
   private headerElement(): HTMLElement {
@@ -110,19 +125,22 @@ class BetterDeepSeekFolders {
 
     header.append(title, actions);
     if (this.featureEnabled('folderSearch')) {
-      const search = document.createElement('input');
-      search.className = 'bd-folder-search';
-      search.type = 'search';
-      search.placeholder = '搜索文件夹和会话';
-      search.value = this.searchQuery;
-      search.addEventListener('input', () => {
+      this.searchInput = document.createElement('input');
+      this.searchInput.className = 'bd-folder-search';
+      this.searchInput.type = 'search';
+      this.searchInput.placeholder = '搜索文件夹和会话';
+      this.searchInput.value = this.searchQuery;
+      this.searchInput.addEventListener('input', () => {
         if (this.searchTimer) window.clearTimeout(this.searchTimer);
         this.searchTimer = window.setTimeout(() => {
-          this.searchQuery = search.value;
+          this.searchQuery = this.searchInput!.value;
           this.render();
-        }, 150);
+        }, 80);
       });
-      header.append(search);
+      header.append(this.searchInput);
+    } else {
+      this.searchInput = null;
+      this.searchQuery = '';
     }
     const selectionBar = this.selectionToolbarElement();
     if (selectionBar) header.append(selectionBar);
@@ -279,15 +297,29 @@ class BetterDeepSeekFolders {
       }),
       this.iconButton('palette', '设置颜色', () => this.openColorDialog(folder)),
       this.iconButton('plus', '新建子文件夹', () => this.createFolder(folder.id)),
-      this.iconButton('chat', '保存当前会话', () => this.addCurrentConversation(folder.id)),
       this.iconButton('x', '删除文件夹', () => this.deleteFolder(folder.id)),
     );
 
     row.append(toggle, folderIcon, name, actions);
     block.append(row);
 
-    if (folder.isExpanded || query) {
-      for (const conversation of this.visibleConversations(folder.id, query)) {
+    const folderQuery = this.folderSearchQueries.get(folder.id) ?? '';
+
+    if (folder.isExpanded && this.featureEnabled('folderSearch')) {
+      const folderSearchInput = document.createElement('input');
+      folderSearchInput.className = 'bd-folder-inner-search';
+      folderSearchInput.type = 'search';
+      folderSearchInput.placeholder = '搜索此文件夹';
+      folderSearchInput.value = folderQuery;
+      folderSearchInput.addEventListener('input', () => {
+        this.folderSearchQueries.set(folder.id, folderSearchInput.value);
+        this.render();
+      });
+      block.append(folderSearchInput);
+    }
+
+    if (folder.isExpanded || query || folderQuery) {
+      for (const conversation of this.visibleConversations(folder.id, query, folderQuery)) {
         block.append(this.conversationElement(folder.id, conversation, level));
       }
       for (const child of this.visibleFoldersByParent(folder.id, query)) {
@@ -305,16 +337,22 @@ class BetterDeepSeekFolders {
     return folders.filter((folder) => this.folderMatchesSearch(folder, query));
   }
 
-  private visibleConversations(folderId: string, query: string): ConversationReference[] {
+  private visibleConversations(folderId: string, query: string, folderQuery = ''): ConversationReference[] {
     const conversations = this.store.conversations(folderId);
-    if (!query) return conversations;
 
-    return conversations.filter((conversation) => this.textMatchesSearch(conversation.title, query));
+    let filtered = conversations;
+    if (query) filtered = filtered.filter((c) => this.textMatchesSearch(c.title, query));
+    if (folderQuery) filtered = filtered.filter((c) => this.textMatchesSearch(c.title, folderQuery));
+
+    return filtered;
   }
 
   private folderMatchesSearch(folder: Folder, query: string): boolean {
     if (this.textMatchesSearch(folder.name, query)) return true;
     if (this.visibleConversations(folder.id, query).length > 0) return true;
+
+    const folderQuery = this.folderSearchQueries.get(folder.id) ?? '';
+    if (folderQuery) return true;
 
     return this.store
       .foldersByParent(folder.id)
@@ -851,6 +889,7 @@ class BetterDeepSeekFolders {
         this.hideEnabled = input.checked;
         this.store.setSettings({ hideEnabled: this.hideEnabled, features });
         if (!features.multiSelect) this.clearSelection();
+        if (!features.folderSearch) this.folderSearchQueries.clear();
         this.persistAndRender();
         cleanup();
       });
