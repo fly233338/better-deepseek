@@ -26,6 +26,7 @@ Better DeepSeek is currently a Manifest V3 browser extension that injects local 
 - Move conversations between folders.
 - Pin frequently used folders to the top of their sibling group.
 - Assign preset colors to folders; folder icons and filed conversation accent bars use the folder color.
+- Search folder names and filed conversation titles from the folder header without changing stored data.
 - Click folder conversations to navigate back to the original DeepSeek chat.
 - No floating fallback: the folder panel embeds into the DeepSeek sidebar once a reliable sidebar target exists.
 - Voyager-inspired sidebar styling with a light blue/white DeepSeek palette, rounded icon buttons, folder rows, and selected conversation pills.

@@ -21,6 +21,13 @@
 - Behavior: renders a Voyager-inspired folder toolbar, rounded icon buttons, folder rows, light blue/white conversation pills, and folder-colored accents for filed conversations. Cloud sync and account/avatar controls are intentionally not shown in the current version.
 - Verification: `npm run build` verifies CSS and content script bundling.
 
+## Folder Search
+
+- Status: implemented.
+- Key files: `src/content/index.ts`, `src/content/styles.css`.
+- Behavior: the folder header includes a debounced search field that filters folder names and filed conversation titles without modifying stored data.
+- Verification: `npm run typecheck` and `npm run build` verify the render path.
+
 ## Sidebar Settings
 
 - Status: implemented.

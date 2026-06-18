@@ -33,6 +33,25 @@
   gap: 8px;
 }
 
+.bd-folder-search {
+  width: 100%;
+  box-sizing: border-box;
+  height: 28px;
+  border: 1px solid #d8e4f5;
+  border-radius: 8px;
+  padding: 0 8px;
+  background: #f7fbff;
+  color: #273449;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.bd-folder-search:focus {
+  border-color: #8db8ff;
+  box-shadow: 0 0 0 2px rgba(141, 184, 255, 0.18);
+}
+
 .bd-icon-button {
   display: inline-flex;
   align-items: center;

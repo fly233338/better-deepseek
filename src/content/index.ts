@@ -35,6 +35,8 @@ class BetterDeepSeekFolders {
   private store = new FolderStore();
   private observer: MutationObserver | null = null;
   private saveTimer: number | null = null;
+  private searchTimer: number | null = null;
+  private searchQuery = '';
   private hideEnabled = true;
 
   async mount(): Promise<void> {
@@ -50,6 +52,7 @@ class BetterDeepSeekFolders {
     const root = this.ensureRoot();
     if (!root) return;
 
+    const query = this.normalizedSearchQuery();
     root.innerHTML = '';
     root.append(this.headerElement());
 
@@ -57,17 +60,17 @@ class BetterDeepSeekFolders {
     list.className = 'bd-folder-list';
     root.append(list);
 
-    const folders = this.store.foldersByParent(null);
+    const folders = this.visibleFoldersByParent(null, query);
     if (folders.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'bd-empty';
-      empty.textContent = '新建文件夹后，可拖入 DeepSeek 历史会话。';
+      empty.textContent = query ? '没有匹配的文件夹或会话。' : '新建文件夹后，可拖入 DeepSeek 历史会话。';
       list.append(empty);
       return;
     }
 
     for (const folder of folders) {
-      list.append(this.folderElement(folder, 0));
+      list.append(this.folderElement(folder, 0, query));
     }
   }
 
@@ -86,7 +89,20 @@ class BetterDeepSeekFolders {
       this.iconButton('plus', '新建文件夹', () => this.createFolder(null)),
     );
 
-    header.append(title, actions);
+    const search = document.createElement('input');
+    search.className = 'bd-folder-search';
+    search.type = 'search';
+    search.placeholder = '搜索文件夹和会话';
+    search.value = this.searchQuery;
+    search.addEventListener('input', () => {
+      if (this.searchTimer) window.clearTimeout(this.searchTimer);
+      this.searchTimer = window.setTimeout(() => {
+        this.searchQuery = search.value;
+        this.render();
+      }, 150);
+    });
+
+    header.append(title, actions, search);
     return header;
   }
 
@@ -110,7 +126,7 @@ class BetterDeepSeekFolders {
     return root;
   }
 
-  private folderElement(folder: Folder, level: number): HTMLElement {
+  private folderElement(folder: Folder, level: number, query: string): HTMLElement {
     const block = document.createElement('div');
     block.className = 'bd-folder-block';
     block.dataset.folderId = folder.id;
@@ -164,16 +180,47 @@ class BetterDeepSeekFolders {
     row.append(toggle, folderIcon, name, actions);
     block.append(row);
 
-    if (folder.isExpanded) {
-      for (const conversation of this.store.conversations(folder.id)) {
+    if (folder.isExpanded || query) {
+      for (const conversation of this.visibleConversations(folder.id, query)) {
         block.append(this.conversationElement(folder.id, conversation, level));
       }
-      for (const child of this.store.foldersByParent(folder.id)) {
-        block.append(this.folderElement(child, level + 1));
+      for (const child of this.visibleFoldersByParent(folder.id, query)) {
+        block.append(this.folderElement(child, level + 1, query));
       }
     }
 
     return block;
+  }
+
+  private visibleFoldersByParent(parentId: string | null, query: string): Folder[] {
+    const folders = this.store.foldersByParent(parentId);
+    if (!query) return folders;
+
+    return folders.filter((folder) => this.folderMatchesSearch(folder, query));
+  }
+
+  private visibleConversations(folderId: string, query: string): ConversationReference[] {
+    const conversations = this.store.conversations(folderId);
+    if (!query) return conversations;
+
+    return conversations.filter((conversation) => this.textMatchesSearch(conversation.title, query));
+  }
+
+  private folderMatchesSearch(folder: Folder, query: string): boolean {
+    if (this.textMatchesSearch(folder.name, query)) return true;
+    if (this.visibleConversations(folder.id, query).length > 0) return true;
+
+    return this.store
+      .foldersByParent(folder.id)
+      .some((child) => this.folderMatchesSearch(child, query));
+  }
+
+  private textMatchesSearch(value: string, query: string): boolean {
+    return value.trim().toLocaleLowerCase().includes(query);
+  }
+
+  private normalizedSearchQuery(): string {
+    return this.searchQuery.trim().toLocaleLowerCase();
   }
 
   private conversationElement(
