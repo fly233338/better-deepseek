@@ -20,6 +20,15 @@ import {
 
 const ROOT_ID = 'better-deepseek-folders';
 const DRAG_MIME = 'application/x-better-deepseek';
+const DEFAULT_FOLDER_COLOR = '#66e2aa';
+const FOLDER_COLORS = [
+  { label: '默认', value: DEFAULT_FOLDER_COLOR },
+  { label: '浅蓝', value: '#74a8ff' },
+  { label: '薄荷绿', value: '#66e2aa' },
+  { label: '淡紫', value: '#b99cff' },
+  { label: '粉色', value: '#ff9ac2' },
+  { label: '琥珀', value: '#f4bf5f' },
+] as const;
 
 class BetterDeepSeekFolders {
   private readonly storage = new ExtensionFolderStorage();
@@ -105,6 +114,7 @@ class BetterDeepSeekFolders {
     const block = document.createElement('div');
     block.className = 'bd-folder-block';
     block.dataset.folderId = folder.id;
+    block.style.setProperty('--bd-folder-accent', folder.color || DEFAULT_FOLDER_COLOR);
 
     const row = document.createElement('div');
     row.className = 'bd-folder-row';
@@ -145,6 +155,7 @@ class BetterDeepSeekFolders {
         this.store.togglePinned(folder.id);
         this.persistAndRender();
       }),
+      this.iconButton('palette', '设置颜色', () => this.openColorDialog(folder)),
       this.iconButton('plus', '新建子文件夹', () => this.createFolder(folder.id)),
       this.iconButton('chat', '保存当前会话', () => this.addCurrentConversation(folder.id)),
       this.iconButton('x', '删除文件夹', () => this.deleteFolder(folder.id)),
@@ -302,6 +313,55 @@ class BetterDeepSeekFolders {
       this.store.addConversation(targetFolderId, conversation);
     }
     this.persistAndRender();
+  }
+
+  private openColorDialog(folder: Folder): Promise<void> {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'bd-dialog-overlay';
+
+      const dialog = document.createElement('div');
+      dialog.className = 'bd-dialog';
+
+      const title = document.createElement('div');
+      title.className = 'bd-dialog-label';
+      title.textContent = `设置“${folder.name}”颜色`;
+
+      const grid = document.createElement('div');
+      grid.className = 'bd-color-grid';
+
+      for (const color of FOLDER_COLORS) {
+        const button = document.createElement('button');
+        button.className = 'bd-color-option';
+        button.type = 'button';
+        button.title = color.label;
+        button.style.setProperty('--bd-color-option', color.value);
+        button.classList.toggle('bd-color-option-active', (folder.color || DEFAULT_FOLDER_COLOR) === color.value);
+        button.addEventListener('click', () => {
+          this.store.setFolderColor(folder.id, color.value === DEFAULT_FOLDER_COLOR ? undefined : color.value);
+          this.persistAndRender();
+          overlay.remove();
+          resolve();
+        });
+        grid.append(button);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'bd-dialog-actions';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'bd-dialog-btn bd-dialog-cancel';
+      cancelBtn.textContent = '取消';
+      cancelBtn.addEventListener('click', () => {
+        overlay.remove();
+        resolve();
+      });
+
+      actions.append(cancelBtn);
+      dialog.append(title, grid, actions);
+      overlay.append(dialog);
+      document.body.append(overlay);
+    });
   }
 
   private openSettingsDialog(): Promise<void> {
@@ -595,6 +655,7 @@ type IconName =
   | 'chevronDown'
   | 'chevronRight'
   | 'folder'
+  | 'palette'
   | 'pin'
   | 'pinOff'
   | 'plus'
@@ -609,6 +670,7 @@ const ICONS: Record<IconName, string> = {
   chevronDown: `<svg ${baseIconAttrs}><path d="m6 9 6 6 6-6"/></svg>`,
   chevronRight: `<svg ${baseIconAttrs}><path d="m9 6 6 6-6 6"/></svg>`,
   folder: `<svg ${baseIconAttrs}><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`,
+  palette: `<svg ${baseIconAttrs}><path d="M12 22a10 10 0 1 1 10-10 3 3 0 0 1-3 3h-1.5a2 2 0 0 0-1.7 3l.2.3a2.5 2.5 0 0 1-2.1 3.7z"/><circle cx="7.5" cy="10.5" r=".5"/><circle cx="10.5" cy="7.5" r=".5"/><circle cx="14.5" cy="7.5" r=".5"/><circle cx="16.5" cy="11.5" r=".5"/></svg>`,
   pin: `<svg ${baseIconAttrs}><path d="M12 17v5"/><path d="M5 17h14"/><path d="M15 3.6 14 10l3 3v4H7v-4l3-3-.9-6.4A1 1 0 0 1 10.1 2h3.8a1 1 0 0 1 1.1 1.6z"/></svg>`,
   pinOff: `<svg ${baseIconAttrs}><path d="m3 3 18 18"/><path d="M12 17v5"/><path d="M5 17h12"/><path d="M10 4 9.5 7.5"/><path d="M14.5 10.5 17 13v4H7v-4l2-2"/><path d="M14 2a1 1 0 0 1 1 1.2L14 10"/></svg>`,
   plus: `<svg ${baseIconAttrs}><path d="M12 5v14"/><path d="M5 12h14"/></svg>`,

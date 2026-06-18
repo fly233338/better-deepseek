@@ -68,6 +68,12 @@ export class FolderStore {
     folder.updatedAt = Date.now();
   }
 
+  setFolderColor(folderId: FolderId, color: string | undefined): void {
+    const folder = this.requireFolder(folderId);
+    folder.color = color;
+    folder.updatedAt = Date.now();
+  }
+
   moveFolder(folderId: FolderId, parentId: FolderId | null): void {
     if (folderId === parentId) return;
     const folder = this.requireFolder(folderId);

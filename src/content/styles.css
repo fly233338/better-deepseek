@@ -106,7 +106,7 @@
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
-  color: #6b7484;
+  color: var(--bd-folder-accent, #66e2aa);
 }
 
 .bd-folder-name,
@@ -161,7 +161,7 @@
   left: 0;
   width: 3px;
   border-radius: 999px;
-  background: #66e2aa;
+  background: var(--bd-folder-accent, #66e2aa);
 }
 
 .bd-current-conversation {
@@ -309,6 +309,26 @@
 
 .bd-setting-switch:has(.bd-setting-checkbox:checked) span {
   transform: translateX(18px);
+}
+
+.bd-color-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 28px);
+  gap: 10px;
+}
+
+.bd-color-option {
+  width: 28px;
+  height: 28px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--bd-color-option);
+  cursor: pointer;
+}
+
+.bd-color-option:hover,
+.bd-color-option-active {
+  border-color: #273449;
 }
 
 .bd-dialog-btn {

@@ -4,8 +4,8 @@
 
 - Status: implemented and extended.
 - Key files: `src/core/folderStore.ts`, `src/core/types.ts`, `src/core/storage.ts`.
-- Behavior: creates root folders and one level of subfolders, renames/deletes folders, moves conversations, pins folders, and persists folder data.
-- Verification: `npm run test` covers folder creation, move dedupe, recursive deletion, immutability, nesting limit, and pinned folder ordering.
+- Behavior: creates root folders and one level of subfolders, renames/deletes folders, moves conversations, pins folders, stores folder colors, and persists folder data.
+- Verification: `npm run test` covers folder creation, move dedupe, recursive deletion, immutability, nesting limit, pinned folder ordering, and folder color storage.
 
 ## DeepSeek Web Adapter
 
@@ -18,7 +18,7 @@
 
 - Status: implemented and simplified.
 - Key files: `src/content/index.ts`, `src/content/styles.css`.
-- Behavior: renders a Voyager-inspired folder toolbar, rounded icon buttons, folder rows, light blue/white conversation pills, and a green left accent for foldered conversations. Cloud sync and account/avatar controls are intentionally not shown in the current version.
+- Behavior: renders a Voyager-inspired folder toolbar, rounded icon buttons, folder rows, light blue/white conversation pills, and folder-colored accents for filed conversations. Cloud sync and account/avatar controls are intentionally not shown in the current version.
 - Verification: `npm run build` verifies CSS and content script bundling.
 
 ## Sidebar Settings

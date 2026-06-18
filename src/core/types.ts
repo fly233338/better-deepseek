@@ -7,6 +7,7 @@ export interface Folder {
   parentId: FolderId | null;
   isExpanded: boolean;
   pinned?: boolean;
+  color?: string;
   createdAt: number;
   updatedAt: number;
   sortIndex: number;

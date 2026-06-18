@@ -114,4 +114,16 @@ describe('FolderStore', () => {
       'Child A',
     ]);
   });
+
+  it('stores folder colors', () => {
+    const store = new FolderStore();
+    const folder = store.createFolder('Colored');
+
+    store.setFolderColor(folder.id, '#74a8ff');
+
+    expect(store.snapshot().folders[0]).toMatchObject({
+      id: folder.id,
+      color: '#74a8ff',
+    });
+  });
 });
