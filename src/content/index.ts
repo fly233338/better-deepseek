@@ -193,8 +193,10 @@ class BetterDeepSeekFolders {
     title.className = 'bd-conversation-title';
     title.textContent = conversation.title;
 
-    const remove = this.iconButton('x', '从文件夹移除', (event) => {
+    const remove = this.iconButton('x', '从文件夹移除', async (event) => {
       event.stopPropagation();
+      const confirmed = await this.confirmDialog(`从文件夹移除「${conversation.title}」？不会删除 DeepSeek 原始会话。`);
+      if (!confirmed) return;
       this.store.removeConversation(folderId, conversation.conversationId);
       this.persistAndRender();
     });
