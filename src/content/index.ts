@@ -28,6 +28,9 @@ import {
   findNativeConversationContainer,
   navigateToConversation,
 } from '../deepseek/adapter';
+import { PromptStore } from '../core/promptStore';
+import { PromptStorage } from '../core/promptStorage';
+import { PromptPanel } from './promptPanel';
 
 const ROOT_ID = 'better-deepseek-folders';
 const DRAG_MIME = 'application/x-better-deepseek';
@@ -49,17 +52,23 @@ interface SelectedConversation {
 class BetterDeepSeekFolders {
   private readonly storage = new ExtensionFolderStorage();
   private store = new FolderStore();
+  private promptStorage = new PromptStorage();
+  private promptStore: PromptStore | null = null;
+  private promptPanel: PromptPanel | null = null;
   private observer: MutationObserver | null = null;
   private observerTimer: number | null = null;
   private saveTimer: number | null = null;
+  private promptSaveTimer: number | null = null;
   private readonly selectedConversations = new Map<string, SelectedConversation>();
   private folderSearchQueries = new Map<string, string>();
   private openFolderSearchIds = new Set<string>();
-  private viewMode: 'chat' | 'prompts' = 'chat';
   private hideEnabled = true;
 
   async mount(): Promise<void> {
     this.store = new FolderStore(await this.storage.load());
+    this.promptStore = new PromptStore(await this.promptStorage.load());
+    this.promptStore.seedBuiltins();
+    void this.promptStorage.save(this.promptStore.snapshot());
     this.hideEnabled = this.store.getSettings().hideEnabled;
     this.render();
     this.enhanceNativeConversationRows();
@@ -79,12 +88,6 @@ class BetterDeepSeekFolders {
 
     root.innerHTML = '';
     root.append(this.promptEntryElement());
-
-    if (this.viewMode === 'prompts') {
-      root.append(this.promptLibraryPlaceholderElement());
-      return;
-    }
-
     root.append(this.separatorElement());
     root.append(this.pinnedSectionElement());
     root.append(this.folderSectionElement());
@@ -140,41 +143,25 @@ class BetterDeepSeekFolders {
   private promptEntryElement(): HTMLElement {
     const entry = document.createElement('button');
     entry.className = 'bd-prompt-entry';
-    entry.classList.toggle('bd-prompt-entry-active', this.viewMode === 'prompts');
     entry.type = 'button';
     entry.append(this.iconElement('library'), document.createTextNode('提示词库'));
     entry.addEventListener('click', () => {
-      this.viewMode = 'prompts';
-      this.render();
-      this.refreshNativeConversationVisibility();
+      if (!this.promptStore) return;
+      this.promptPanel = new PromptPanel(
+        this.promptStore,
+        () => { this.promptPanel = null; },
+        () => this.persistPromptData(),
+      );
+      this.promptPanel.open();
     });
     return entry;
   }
 
-  private promptLibraryPlaceholderElement(): HTMLElement {
-    const panel = document.createElement('div');
-    panel.className = 'bd-prompt-panel';
-
-    const title = document.createElement('div');
-    title.className = 'bd-prompt-title';
-    title.textContent = '提示词库';
-
-    const copy = document.createElement('div');
-    copy.className = 'bd-prompt-copy';
-    copy.textContent = '这里会作为提示词库入口，后续再接入提示词列表、分类和插入能力。';
-
-    const back = document.createElement('button');
-    back.className = 'bd-prompt-back';
-    back.type = 'button';
-    back.textContent = '返回聊天';
-    back.addEventListener('click', () => {
-      this.viewMode = 'chat';
-      this.render();
-      this.refreshNativeConversationVisibility();
-    });
-
-    panel.append(title, copy, back);
-    return panel;
+  private persistPromptData(): void {
+    if (this.promptSaveTimer) window.clearTimeout(this.promptSaveTimer);
+    this.promptSaveTimer = window.setTimeout(() => {
+      if (this.promptStore) void this.promptStorage.save(this.promptStore.snapshot());
+    }, 80);
   }
 
   private separatorElement(): HTMLElement {
@@ -1272,14 +1259,12 @@ class BetterDeepSeekFolders {
     for (const pinned of this.store.pinnedConversations()) {
       hiddenIds.add(pinned.conversationId);
     }
-    const chatsCollapsed = this.viewMode === 'prompts';
 
     for (const element of document.querySelectorAll<HTMLElement>('[data-bd-native-hidden="true"]')) {
       const anchor = element.querySelector<HTMLAnchorElement>('a[href*="/chat/s/"]');
       const id = anchor ? extractConversationId(anchor.href) : null;
       const shouldHide = this.hideEnabled && Boolean(id && hiddenIds.has(id));
       element.classList.toggle('bd-native-hidden', shouldHide);
-      element.classList.toggle('bd-native-chat-collapsed', chatsCollapsed);
       if (!shouldHide) delete element.dataset.bdNativeHidden;
     }
 
@@ -1292,7 +1277,6 @@ class BetterDeepSeekFolders {
       const row = findNativeConversationContainer(anchor);
       const shouldHide = this.hideEnabled && hiddenIds.has(id);
       row.classList.toggle('bd-native-hidden', shouldHide);
-      row.classList.toggle('bd-native-chat-collapsed', chatsCollapsed);
       if (shouldHide) row.dataset.bdNativeHidden = 'true';
       else delete row.dataset.bdNativeHidden;
     }
