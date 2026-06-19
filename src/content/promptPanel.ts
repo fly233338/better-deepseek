@@ -629,9 +629,9 @@ export class PromptPanel {
       btn.className = 'bd-pp-filter-btn';
       btn.type = 'button';
       btn.textContent = src.name;
-      btn.classList.toggle('bd-pp-filter-active', this.activeSourceId === src.id);
+      btn.classList.toggle('bd-pp-filter-active', Boolean(this.activeSourceId));
       btn.addEventListener('click', () => {
-        this.selectSource(src.id);
+        this.selectSource();
       });
       sidebar.append(btn);
     }
@@ -665,7 +665,7 @@ export class PromptPanel {
       const retryBtn = document.createElement('button');
       retryBtn.className = 'bd-pp-action-btn';
       retryBtn.textContent = '重试刷新';
-      retryBtn.addEventListener('click', () => this.activeSourceId && this.fetchSource(this.activeSourceId, true));
+      retryBtn.addEventListener('click', () => this.fetchSource(true));
 
       const openBtn = document.createElement('button');
       openBtn.className = 'bd-pp-action-btn';
@@ -679,9 +679,8 @@ export class PromptPanel {
       fallbackBtn.className = 'bd-pp-action-btn';
       fallbackBtn.textContent = '查看离线快照';
       fallbackBtn.addEventListener('click', () => {
-        if (!this.activeSourceId) return;
         this.sourceFallback = true;
-        this.fetchSource(this.activeSourceId, false);
+        this.fetchSource(false);
       });
 
       errBox.append(retryBtn, openBtn, fallbackBtn);
@@ -742,7 +741,7 @@ export class PromptPanel {
     refreshBtn.className = 'bd-pp-action-btn';
     refreshBtn.textContent = '刷新';
     refreshBtn.disabled = this.sourceLoading;
-    refreshBtn.addEventListener('click', () => this.fetchSource(this.activeSourceId!, true));
+    refreshBtn.addEventListener('click', () => this.fetchSource(true));
     toolbar.append(refreshBtn);
 
     const linkBtn = document.createElement('button');
@@ -757,16 +756,16 @@ export class PromptPanel {
     parent.append(toolbar);
   }
 
-  private selectSource(sourceId: string): void {
-    this.activeSourceId = sourceId;
+  private selectSource(): void {
+    this.activeSourceId = 'better-deepseek';
     this.sourceError = null;
     this.sourceFallback = false;
     this.addedSourceFingerprints.clear();
     this.selectedSourceIndex = null;
-    this.fetchSource(sourceId, false);
+    this.fetchSource(false);
   }
 
-  private async fetchSource(sourceId: string, forceRefresh: boolean): Promise<void> {
+  private async fetchSource(forceRefresh: boolean): Promise<void> {
     this.sourceLoading = true;
     this.sourceError = null;
     this.sourcePack = [];
@@ -775,15 +774,7 @@ export class PromptPanel {
     this.renderBody();
 
     try {
-      let pack;
-      if (forceRefresh || this.sourceFallback) {
-        pack = forceRefresh
-          ? await refreshSource(sourceId as 'deepseek-official' | 'github-deepseek')
-          : await loadSource(sourceId as 'deepseek-official' | 'github-deepseek');
-      } else {
-        pack = await loadSource(sourceId as 'deepseek-official' | 'github-deepseek');
-      }
-
+      const pack = forceRefresh ? await refreshSource() : await loadSource();
       this.sourcePack = pack.items;
       this.sourceRiskCount = pack.risks?.length ?? 0;
       this.sourceLoading = false;
@@ -791,17 +782,6 @@ export class PromptPanel {
     } catch (err) {
       this.sourceLoading = false;
       this.sourceError = err instanceof Error ? err.message : '未知错误';
-      if (!forceRefresh && !this.sourceFallback) {
-        this.sourceFallback = true;
-        try {
-          const fallback = await loadSource(sourceId as 'deepseek-official' | 'github-deepseek');
-          this.sourcePack = fallback.items;
-          this.sourceRiskCount = fallback.risks?.length ?? 0;
-          this.sourceError = null;
-        } catch {
-          // keep error
-        }
-      }
       this.renderBody();
     }
   }
