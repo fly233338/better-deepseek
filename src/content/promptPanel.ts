@@ -37,6 +37,8 @@ export class PromptPanel {
   private sourceError: string | null = null;
   private sourceFallback = false;
   private addedSourceFingerprints = new Set<string>();
+  private sourceSearchQuery = '';
+  private sourceCategoryFilter: string | null = null;
 
   constructor(store: PromptStore, onClose: PanelCloseCallback, onPersist: () => void) {
     this.store = store;
@@ -75,9 +77,17 @@ export class PromptPanel {
     panel.addEventListener('click', (event) => event.stopPropagation());
     overlay.addEventListener('click', () => this.close());
 
+    this.panelEl = panel;
+    this.updatePanelWidth();
     panel.append(this.buildHeader(), this.buildBody());
     overlay.append(panel);
     return overlay;
+  }
+
+  private panelEl: HTMLElement | null = null;
+
+  private updatePanelWidth(): void {
+    this.panelEl?.classList.toggle('bd-prompt-panel-wide', this.sourceMode !== 'library');
   }
 
   private buildHeader(): HTMLElement {
@@ -669,21 +679,13 @@ export class PromptPanel {
 
       const openBtn = document.createElement('button');
       openBtn.className = 'bd-pp-action-btn';
-      openBtn.textContent = '打开官方网页';
+      openBtn.textContent = '打开仓库文档';
       openBtn.addEventListener('click', () => {
         const src = getSourceList().find((s) => s.id === this.activeSourceId);
         if (src) window.open(src.homepage, '_blank');
       });
 
-      const fallbackBtn = document.createElement('button');
-      fallbackBtn.className = 'bd-pp-action-btn';
-      fallbackBtn.textContent = '查看离线快照';
-      fallbackBtn.addEventListener('click', () => {
-        this.sourceFallback = true;
-        this.fetchSource(false);
-      });
-
-      errBox.append(retryBtn, openBtn, fallbackBtn);
+      errBox.append(retryBtn, openBtn);
       list.append(errBox);
     } else if (this.sourcePack.length === 0) {
       if (this.activeSourceId) {
@@ -698,25 +700,34 @@ export class PromptPanel {
         list.append(empty);
       }
     } else {
+      let filtered = this.sourcePack;
+      if (this.sourceSearchQuery) {
+        const q = this.sourceSearchQuery.toLowerCase();
+        filtered = filtered.filter((p) =>
+          p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q) || p.tags.some((t) => t.toLowerCase().includes(q)),
+        );
+      }
+      if (this.sourceCategoryFilter) {
+        filtered = filtered.filter((p) => p.tags.includes(this.sourceCategoryFilter!));
+      }
+
       const statBar = document.createElement('div');
       statBar.className = 'bd-pp-source-stats';
-      const available = this.sourcePack.filter(
+      const available = filtered.filter(
         (item) => !this.store.hasFingerprint(item.fingerprint) && !this.addedSourceFingerprints.has(item.fingerprint),
       ).length;
-      statBar.textContent = `${this.sourcePack.length} 条${available > 0 ? `，${available} 条可添加` : ''}`;
-      if (this.sourceRiskCount > 0) {
-        statBar.textContent += ` · 已过滤 ${this.sourceRiskCount} 条风险内容`;
-      }
-      if (this.sourceFallback) {
-        statBar.textContent += ' · 离线兜底';
-      }
+      statBar.textContent = `${filtered.length} 条${available > 0 ? `，${available} 条可添加` : ''}`;
+      if (this.sourceRiskCount > 0) statBar.textContent += ` · 已过滤 ${this.sourceRiskCount} 条风险内容`;
+      if (this.sourceFallback) statBar.textContent += ' · 离线兜底';
       list.append(statBar);
 
-      for (let i = 0; i < this.sourcePack.length; i++) {
-        const item = this.sourcePack[i];
-        const card = this.buildSourceCard(item, i);
-        list.append(card);
+      const grid = document.createElement('div');
+      grid.className = 'bd-pp-source-grid';
+      for (const item of filtered) {
+        const origIndex = this.sourcePack.indexOf(item);
+        grid.append(this.buildSourceCard(item, origIndex));
       }
+      list.append(grid);
     }
 
     const detail = this.buildSourceDetail();
@@ -737,6 +748,40 @@ export class PromptPanel {
     name.textContent = src?.name ?? this.activeSourceId;
     toolbar.append(name);
 
+    const search = document.createElement('input');
+    search.className = 'bd-pp-search';
+    search.type = 'search';
+    search.placeholder = '搜索...';
+    search.value = this.sourceSearchQuery;
+    search.addEventListener('input', () => {
+      this.sourceSearchQuery = search.value;
+      this.renderBody();
+    });
+    toolbar.append(search);
+
+    const categories = [...new Set(this.sourcePack.map((p) => p.tags).flat().filter(Boolean))].sort();
+    if (categories.length > 0) {
+      const catSelect = document.createElement('select');
+      catSelect.className = 'bd-pp-action-btn';
+      catSelect.style.cssText = 'padding:6px 8px;';
+      const allOpt = document.createElement('option');
+      allOpt.value = '';
+      allOpt.textContent = '全部分类';
+      catSelect.append(allOpt);
+      for (const cat of categories) {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        if (cat === this.sourceCategoryFilter) opt.selected = true;
+        catSelect.append(opt);
+      }
+      catSelect.addEventListener('change', () => {
+        this.sourceCategoryFilter = catSelect.value || null;
+        this.renderBody();
+      });
+      toolbar.append(catSelect);
+    }
+
     const refreshBtn = document.createElement('button');
     refreshBtn.className = 'bd-pp-action-btn';
     refreshBtn.textContent = '刷新';
@@ -747,7 +792,7 @@ export class PromptPanel {
     const linkBtn = document.createElement('button');
     linkBtn.className = 'bd-pp-action-btn';
     linkBtn.textContent = '↗';
-    linkBtn.title = '打开官方网页';
+    linkBtn.title = '打开仓库文档';
     linkBtn.addEventListener('click', () => {
       if (src) window.open(src.homepage, '_blank');
     });
@@ -778,6 +823,7 @@ export class PromptPanel {
       this.sourcePack = pack.items;
       this.sourceRiskCount = pack.risks?.length ?? 0;
       this.sourceLoading = false;
+      if (this.sourcePack.length > 0) this.selectedSourceIndex = 0;
       this.renderBody();
     } catch (err) {
       this.sourceLoading = false;
