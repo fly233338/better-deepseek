@@ -17,6 +17,7 @@ export interface PromptItem {
 export interface PromptData {
   prompts: PromptItem[];
   seededAt?: number;
+  builtinVersion?: number;
 }
 
 export type PromptFilter = 'all' | 'favorites' | 'builtin' | 'user' | string;

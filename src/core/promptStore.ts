@@ -1,68 +1,225 @@
 import { createId } from './id';
 import type { PromptData, PromptFilter, PromptId, PromptItem } from './promptTypes';
 
+const BUILTIN_PROMPT_VERSION = 2;
+const BUILTIN_TITLE_ALIASES = new Map([
+  ['角色卡生成器', '角色扮演'],
+]);
 const BUILTIN_PROMPTS: Omit<PromptItem, 'id' | 'createdAt' | 'updatedAt' | 'usageCount'>[] = [
   {
+    title: '提问优化器',
+    description: '把模糊问题改写成更容易得到高质量回答的 Prompt',
+    content: [
+      '请帮我优化下面这个问题，让它更清晰、更具体、更适合交给 AI 回答。',
+      '',
+      '要求：',
+      '1. 先指出原问题中缺失的信息或可能的歧义。',
+      '2. 给出一个可直接复制使用的优化版 Prompt。',
+      '3. 如果有必要，补充 2-3 个可选追问。',
+      '',
+      '原问题：',
+      '{{问题}}',
+    ].join('\n'),
+    tags: ['效率', '提问'],
+    favorite: true,
+    source: 'builtin',
+  },
+  {
     title: '写作润色',
-    description: '优化文字表达，修正语法错误，提升可读性',
-    content: '请润色以下文字，修正语法错误，提升表达流畅度，保持原意不变：\n\n{{文本}}',
-    tags: ['写作'],
+    description: '在不改变原意的前提下，让文本更清楚、更自然',
+    content: [
+      '请润色下面的文本。',
+      '',
+      '目标风格：{{目标风格}}',
+      '读者对象：{{读者对象}}',
+      '',
+      '要求：',
+      '1. 保持原意，不凭空增加事实。',
+      '2. 修正语病、重复和不自然表达。',
+      '3. 输出润色后的版本，并简要说明主要修改点。',
+      '',
+      '原文：',
+      '{{文本}}',
+    ].join('\n'),
+    tags: ['写作', '效率'],
     favorite: true,
     source: 'builtin',
   },
   {
     title: '中英互译',
-    description: '中文和英文互相翻译',
-    content: '请将以下文字翻译为{{目标语言}}：\n\n{{原文}}',
-    tags: ['翻译'],
+    description: '翻译文本，并保留语气、格式和专有名词一致性',
+    content: [
+      '请将下面内容翻译为{{目标语言}}。',
+      '',
+      '要求：',
+      '1. 保留原文格式、列表和代码块。',
+      '2. 专有名词先按通用译法处理，不确定时保留原文。',
+      '3. 语气保持{{语气}}。',
+      '',
+      '原文：',
+      '{{原文}}',
+    ].join('\n'),
+    tags: ['翻译', '写作'],
     favorite: true,
     source: 'builtin',
   },
   {
     title: '代码审查',
-    description: '审查代码质量、安全性和性能',
-    content: '请审查以下代码，关注安全性、性能和可维护性，给出具体改进建议：\n\n```\n{{代码}}\n```',
-    tags: ['编程'],
+    description: '审查代码的正确性、可维护性、性能和安全风险',
+    content: [
+      '请以资深工程师的方式审查下面的代码。',
+      '',
+      '背景/目标：{{背景}}',
+      '',
+      '请按优先级输出：',
+      '1. 可能导致错误或回归的问题。',
+      '2. 安全、性能或边界条件风险。',
+      '3. 可维护性改进建议。',
+      '4. 建议补充的测试用例。',
+      '',
+      '代码：',
+      '```',
+      '{{代码}}',
+      '```',
+    ].join('\n'),
+    tags: ['编程', '审查'],
     favorite: true,
     source: 'builtin',
   },
   {
     title: '学习导师',
-    description: '用费曼学习法解释任意概念',
-    content: '请用费曼学习法解释"{{概念}}"，用最简单的语言让一个初学者也能理解。',
-    tags: ['学习'],
+    description: '用循序渐进的方式讲清一个概念，并带练习',
+    content: [
+      '请扮演一位耐心的学习导师，帮助我理解：{{概念}}。',
+      '',
+      '我的水平：{{当前水平}}',
+      '',
+      '请按这个结构回答：',
+      '1. 一句话解释。',
+      '2. 用生活类比解释。',
+      '3. 关键概念拆解。',
+      '4. 常见误区。',
+      '5. 给我 3 道由浅入深的小练习，并附参考答案。',
+    ].join('\n'),
+    tags: ['学习', '解释'],
     favorite: true,
     source: 'builtin',
   },
   {
     title: '总结提炼',
-    description: '将长文本总结为要点',
-    content: '请将以下内容总结为3-5个要点，每个要点不超过两行：\n\n{{内容}}',
-    tags: ['效率'],
-    favorite: false,
-    source: 'builtin',
-  },
-  {
-    title: '角色扮演',
-    description: '设定角色卡，进行角色扮演对话',
-    content: '你将扮演{{角色名称}}。以下是你的设定：\n\n{{角色设定}}\n\n现在请以这个角色的身份回复：{{用户输入}}',
-    tags: ['创意'],
-    favorite: false,
-    source: 'builtin',
-  },
-  {
-    title: '头脑风暴',
-    description: '围绕主题生成创意点子',
-    content: '请围绕"{{主题}}"进行头脑风暴，从不同角度提出至少10个创意点子。',
-    tags: ['创意'],
+    description: '把长文本压缩成可行动的重点和待办',
+    content: [
+      '请总结下面内容。',
+      '',
+      '输出格式：',
+      '1. 3-5 条核心结论。',
+      '2. 重要事实/数据。',
+      '3. 可执行待办。',
+      '4. 仍不确定或需要追问的信息。',
+      '',
+      '内容：',
+      '{{内容}}',
+    ].join('\n'),
+    tags: ['效率', '总结'],
     favorite: false,
     source: 'builtin',
   },
   {
     title: '深度分析',
-    description: '多角度深度分析问题',
-    content: '请对以下问题从多角度进行深度分析（背景、现状、影响、建议）：\n\n{{问题}}',
-    tags: ['分析'],
+    description: '从背景、利弊、风险和方案多角度分析问题',
+    content: [
+      '请对下面问题做一次结构化深度分析。',
+      '',
+      '问题：{{问题}}',
+      '',
+      '请包含：',
+      '1. 背景和关键约束。',
+      '2. 主要利益相关方。',
+      '3. 支持与反对观点。',
+      '4. 潜在风险和反例。',
+      '5. 2-3 个可选方案及取舍。',
+      '6. 你的建议和判断依据。',
+    ].join('\n'),
+    tags: ['分析', '决策'],
+    favorite: false,
+    source: 'builtin',
+  },
+  {
+    title: '头脑风暴',
+    description: '围绕一个主题生成多方向创意，并筛选可执行方案',
+    content: [
+      '请围绕“{{主题}}”进行头脑风暴。',
+      '',
+      '要求：',
+      '1. 先给出 12 个不同方向的点子。',
+      '2. 每个点子用一句话说明价值。',
+      '3. 按“新颖度/可行性/成本”简单打分。',
+      '4. 最后推荐最值得尝试的 3 个方案。',
+    ].join('\n'),
+    tags: ['创意', '方案'],
+    favorite: false,
+    source: 'builtin',
+  },
+  {
+    title: '角色卡生成器',
+    description: '生成可用于角色扮演或长期对话的角色设定',
+    content: [
+      '请帮我创建一个可用于 AI 角色扮演的角色卡。',
+      '',
+      '角色方向：{{角色方向}}',
+      '互动风格：{{互动风格}}',
+      '',
+      '请输出：',
+      '1. 角色名称。',
+      '2. 身份背景。',
+      '3. 性格特点和说话习惯。',
+      '4. 知识边界和行为禁忌。',
+      '5. 开场白。',
+      '6. 可直接作为系统提示词使用的完整角色设定。',
+    ].join('\n'),
+    tags: ['角色', '创意'],
+    favorite: false,
+    source: 'builtin',
+  },
+  {
+    title: '周报与汇报',
+    description: '把零散工作记录整理成清晰的汇报材料',
+    content: [
+      '请把下面的工作记录整理成{{汇报类型}}。',
+      '',
+      '受众：{{受众}}',
+      '',
+      '要求：',
+      '1. 突出成果和影响，而不是流水账。',
+      '2. 问题和风险要客观具体。',
+      '3. 下一步计划要可执行。',
+      '4. 语气专业、简洁。',
+      '',
+      '工作记录：',
+      '{{工作记录}}',
+    ].join('\n'),
+    tags: ['办公', '写作'],
+    favorite: false,
+    source: 'builtin',
+  },
+  {
+    title: '方案对比',
+    description: '比较多个选项并给出推荐决策',
+    content: [
+      '请帮我比较以下几个方案，并给出推荐。',
+      '',
+      '目标：{{目标}}',
+      '候选方案：{{候选方案}}',
+      '约束条件：{{约束条件}}',
+      '',
+      '请输出：',
+      '1. 对比维度。',
+      '2. 表格化比较。',
+      '3. 每个方案的主要风险。',
+      '4. 推荐方案和理由。',
+      '5. 如果信息不足，需要我补充什么。',
+    ].join('\n'),
+    tags: ['决策', '分析'],
     favorite: false,
     source: 'builtin',
   },
@@ -80,9 +237,15 @@ export class PromptStore {
   }
 
   seedBuiltins(): PromptItem[] {
-    if (this.data.seededAt) return [];
+    if ((this.data.builtinVersion ?? 0) >= BUILTIN_PROMPT_VERSION) return [];
 
     const now = Date.now();
+    if (this.data.seededAt) {
+      const upgraded = this.upgradeBuiltins(now);
+      this.data.builtinVersion = BUILTIN_PROMPT_VERSION;
+      return upgraded;
+    }
+
     const builtins: PromptItem[] = BUILTIN_PROMPTS.map((p, i) => ({
       ...p,
       id: createId('prompt'),
@@ -93,6 +256,7 @@ export class PromptStore {
 
     this.data.prompts.push(...builtins);
     this.data.seededAt = now;
+    this.data.builtinVersion = BUILTIN_PROMPT_VERSION;
     return builtins;
   }
 
@@ -213,11 +377,47 @@ export class PromptStore {
     prompt.usageCount += 1;
     prompt.lastUsedAt = Date.now();
   }
+
+  private upgradeBuiltins(now: number): PromptItem[] {
+    const upgraded: PromptItem[] = [];
+    const existingBuiltins = new Map(
+      this.data.prompts
+        .filter((prompt) => prompt.source === 'builtin')
+        .map((prompt) => [prompt.title, prompt]),
+    );
+
+    for (const [index, builtin] of BUILTIN_PROMPTS.entries()) {
+      const alias = BUILTIN_TITLE_ALIASES.get(builtin.title);
+      const existing = existingBuiltins.get(builtin.title) ?? (alias ? existingBuiltins.get(alias) : undefined);
+      if (existing) {
+        existing.title = builtin.title;
+        existing.description = builtin.description;
+        existing.content = builtin.content;
+        existing.tags = [...builtin.tags];
+        existing.favorite = existing.favorite || builtin.favorite;
+        existing.updatedAt = now + index;
+        upgraded.push({ ...existing });
+      } else {
+        const prompt: PromptItem = {
+          ...builtin,
+          id: createId('prompt'),
+          createdAt: now + index,
+          updatedAt: now + index,
+          usageCount: 0,
+        };
+        this.data.prompts.push(prompt);
+        upgraded.push({ ...prompt });
+      }
+    }
+
+    return upgraded;
+  }
 }
 
 function clonePromptData(data: PromptData): PromptData {
   return {
     prompts: data.prompts.map((p) => ({ ...p })),
     seededAt: data.seededAt,
+    builtinVersion: data.builtinVersion,
   };
 }

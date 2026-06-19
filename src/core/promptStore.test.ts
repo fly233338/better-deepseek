@@ -28,11 +28,43 @@ describe('PromptStore', () => {
       expect(second).toEqual([]);
     });
 
-    it('does not seed if data was already seeded', () => {
-      const store = storeWithData({ prompts: [], seededAt: 12345 });
+    it('does not seed if data already has the current built-in version', () => {
+      const store = storeWithData({ prompts: [], seededAt: 12345, builtinVersion: 2 });
       const result = store.seedBuiltins();
 
       expect(result).toEqual([]);
+    });
+
+    it('upgrades old built-in prompt data', () => {
+      const store = storeWithData({
+        seededAt: 12345,
+        prompts: [
+          {
+            id: 'prompt-old',
+            title: '写作润色',
+            description: 'old',
+            content: 'old',
+            tags: ['old'],
+            favorite: false,
+            source: 'builtin',
+            createdAt: 1,
+            updatedAt: 1,
+            usageCount: 3,
+          },
+        ],
+      });
+
+      const upgraded = store.seedBuiltins();
+      const writing = store.prompts().find((prompt) => prompt.title === '写作润色');
+
+      expect(upgraded.length).toBeGreaterThanOrEqual(6);
+      expect(writing).toMatchObject({
+        id: 'prompt-old',
+        source: 'builtin',
+        usageCount: 3,
+      });
+      expect(writing?.content).toContain('目标风格');
+      expect(store.snapshot().builtinVersion).toBe(2);
     });
 
     it('built-in prompts have correct fields', () => {
