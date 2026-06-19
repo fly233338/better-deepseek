@@ -1,10 +1,10 @@
 import { t, type AppLocale } from './i18n';
 import { type ThemeMode } from './theme';
-import { extractTables, findMarkdownTables, parseTable, serializeTable, type ParsedTable, type TableFormat } from './tableClip';
+import { extractTables, findMarkdownTables, parseMarkdownTables, parseTable, serializeTable, type ParsedTable, type TableFormat } from './tableClip';
 
 interface TableWidget {
   target: HTMLElement;
-  parsedTable?: ParsedTable;
+  getTable: () => ParsedTable | null;
   host: HTMLElement;
   menu: HTMLElement;
   trigger: HTMLElement;
@@ -13,7 +13,9 @@ interface TableWidget {
   isMenuOpen: boolean;
 }
 
-const OUTSIDE_GAP = 6;
+const BUTTON_SIZE = 30;
+const INSIDE_GAP = 8;
+const VIEWPORT_GAP = 8;
 const HIDE_DELAY = 140;
 
 function createWidgetShadow(root: Document, locale: AppLocale, theme: ThemeMode): { style: HTMLStyleElement; trigger: HTMLButtonElement; menu: HTMLDivElement } {
@@ -91,7 +93,7 @@ export function mountTableToolbar(locale: AppLocale, theme: ThemeMode, root: Doc
     return widgets.has(target);
   }
 
-  function createWidget(target: HTMLElement, parsedTable?: ParsedTable): TableWidget {
+  function createWidget(target: HTMLElement, getTable: () => ParsedTable | null): TableWidget {
     const host = root.createElement('div');
     host.className = 'bd-table-widget';
     host.hidden = true;
@@ -106,8 +108,9 @@ export function mountTableToolbar(locale: AppLocale, theme: ThemeMode, root: Doc
       btn.setAttribute('role', 'menuitem');
       btn.addEventListener('click', (event) => {
         event.stopPropagation();
-        if (act.format && parsedTable) {
-          const content = serializeTable(parsedTable, act.format);
+        const table = act.format ? widget.getTable() : null;
+        if (act.format && table) {
+          const content = serializeTable(table, act.format);
           navigator.clipboard.writeText(content).catch(() => {});
         }
         setMenuOpen(widget, false);
@@ -126,7 +129,7 @@ export function mountTableToolbar(locale: AppLocale, theme: ThemeMode, root: Doc
     shadow.append(style, trigger, menu);
     root.documentElement.append(host);
 
-    const widget: TableWidget = { target, parsedTable, host, menu, trigger, isActive: false, isMenuOpen: false };
+    const widget: TableWidget = { target, getTable, host, menu, trigger, isActive: false, isMenuOpen: false };
     host.dataset.bdTableWidget = '';
 
     target.addEventListener('mouseenter', () => show(widget));
@@ -141,6 +144,7 @@ export function mountTableToolbar(locale: AppLocale, theme: ThemeMode, root: Doc
     if (w.hideTimer) { clearTimeout(w.hideTimer); w.hideTimer = undefined; }
     w.isActive = true;
     w.host.hidden = false;
+    positionWidget(w);
   }
 
   function hideLater(w: TableWidget): void {
@@ -156,6 +160,7 @@ export function mountTableToolbar(locale: AppLocale, theme: ThemeMode, root: Doc
     w.trigger.setAttribute('aria-expanded', String(open));
     w.menu.dataset.open = String(open);
     w.host.hidden = false;
+    positionWidget(w);
   }
 
   function closeAll(): void {
@@ -163,6 +168,43 @@ export function mountTableToolbar(locale: AppLocale, theme: ThemeMode, root: Doc
       const w = (h as HTMLElement & { tableclipWidget?: TableWidget }).tableclipWidget;
       if (w) setMenuOpen(w, false);
     });
+  }
+
+  function clamp(value: number, min: number, max: number): number {
+    if (max < min) return min;
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function positionWidget(w: TableWidget): void {
+    if (!root.documentElement.contains(w.target)) {
+      w.host.remove();
+      hosts.delete(w.host);
+      return;
+    }
+
+    const view = root.defaultView ?? window;
+    const rect = w.target.getBoundingClientRect();
+    const viewportWidth = view.innerWidth;
+    const viewportHeight = view.innerHeight;
+    const visible = rect.width >= 24
+      && rect.height >= 24
+      && rect.bottom >= 0
+      && rect.right >= 0
+      && rect.top <= viewportHeight
+      && rect.left <= viewportWidth;
+
+    w.host.hidden = !visible || !(w.isActive || w.isMenuOpen);
+    if (w.host.hidden) return;
+
+    const visibleLeft = clamp(rect.left, VIEWPORT_GAP, viewportWidth - VIEWPORT_GAP);
+    const visibleRight = clamp(rect.right, VIEWPORT_GAP, viewportWidth - VIEWPORT_GAP);
+    const minLeft = Math.min(visibleLeft + INSIDE_GAP, viewportWidth - BUTTON_SIZE - VIEWPORT_GAP);
+    const maxLeft = Math.max(minLeft, visibleRight - BUTTON_SIZE - INSIDE_GAP);
+    const left = clamp(visibleRight - BUTTON_SIZE - INSIDE_GAP, minLeft, maxLeft);
+    const top = clamp(rect.top + INSIDE_GAP, VIEWPORT_GAP, viewportHeight - BUTTON_SIZE - VIEWPORT_GAP);
+
+    w.host.style.left = `${left}px`;
+    w.host.style.top = `${top}px`;
   }
 
   function updatePositions(): void {
@@ -175,12 +217,7 @@ export function mountTableToolbar(locale: AppLocale, theme: ThemeMode, root: Doc
       }
       const w = widgets.get(target);
       if (!w) return;
-      const rect = target.getBoundingClientRect();
-      const visible = rect.width >= 24 && rect.height >= 24 && rect.bottom >= 0 && rect.right >= 0 && rect.top <= window.innerHeight && rect.left <= window.innerWidth;
-      w.host.hidden = !visible || !(w.isActive || w.isMenuOpen);
-      if (w.host.hidden) return;
-      w.host.style.left = `${Math.max(8, rect.right + OUTSIDE_GAP)}px`;
-      w.host.style.top = `${Math.max(8, rect.top)}px`;
+      positionWidget(w);
     });
   }
 
@@ -188,8 +225,7 @@ export function mountTableToolbar(locale: AppLocale, theme: ThemeMode, root: Doc
     const chatRoot = root.getElementById('root') ?? root;
     for (const table of extractTables(chatRoot)) {
       if (hasWidget(table)) continue;
-      const parsed = parseTable(table);
-      const w = createWidget(table, parsed);
+      const w = createWidget(table, () => parseTable(table));
       widgets.set(table, w);
       hosts.add(w.host);
       (w.host as HTMLElement & { tableclipTarget?: HTMLElement }).tableclipTarget = table;
@@ -197,7 +233,7 @@ export function mountTableToolbar(locale: AppLocale, theme: ThemeMode, root: Doc
     for (const { target, table } of findMarkdownTables(root)) {
       if (hasWidget(target)) continue;
       if (target.querySelector('table')) continue;
-      const w = createWidget(target, table);
+      const w = createWidget(target, () => parseMarkdownTables(target.innerText || target.textContent || '')[0] ?? table);
       widgets.set(target, w);
       hosts.add(w.host);
       (w.host as HTMLElement & { tableclipTarget?: HTMLElement }).tableclipTarget = target;

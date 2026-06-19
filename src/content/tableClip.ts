@@ -90,6 +90,10 @@ function detectHeaderRow(table: HTMLTableElement, sourceRows: HTMLTableRowElemen
   const theadRows = Array.from(table.tHead?.rows ?? []);
   const firstThead = theadRows.find((r) => r.closest('table') === table);
   if (firstThead) return sourceRows.indexOf(firstThead);
+  const firstRow = sourceRows[0];
+  if (firstRow && Array.from(firstRow.cells).every((cell) => cell.tagName.toLowerCase() === 'th')) {
+    return 0;
+  }
   return undefined;
 }
 

@@ -82,3 +82,16 @@
   - `npm run typecheck`
   - `npm test`
   - `npm run build`
+
+## Table Toolbar Live Copy Fix
+
+- Status: Implemented.
+- Summary: Table copy now reparses the live table at click time, so streamed DeepSeek tables copy the completed content instead of the partial rows captured during initial scan. The floating table button now positions inside the visible top-right area of the table to stay close to wide or scrollable tables.
+- Key files:
+  - `src/content/tableClip.ts`
+  - `src/content/tableToolbar.ts`
+  - `src/content/tableToolbar.test.ts`
+- Validation:
+  - `npm run typecheck`
+  - `npm test`
+  - `npm run build`
