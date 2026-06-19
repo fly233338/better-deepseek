@@ -2,5 +2,8 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
-.codex/
+.codex/*
+!.codex/docs/
+!.codex/docs/overview.md
+!.codex/docs/development-checklist.md
 docs/*.md

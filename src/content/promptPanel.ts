@@ -11,6 +11,7 @@ import {
   readJsonFile,
 } from '../core/promptImportExport';
 import { getSourceList, loadSource, refreshSource } from './promptSources';
+import { applyThemeClass, type ThemeMode } from './theme';
 
 const PANEL_CLASS = 'bd-prompt-panel';
 
@@ -20,6 +21,7 @@ export class PromptPanel {
   private readonly store: PromptStore;
   private readonly onClose: PanelCloseCallback;
   private readonly onPersist: () => void;
+  private readonly getTheme: () => ThemeMode;
   private container: HTMLElement | null = null;
 
   private searchQuery = '';
@@ -39,10 +41,11 @@ export class PromptPanel {
   private addedSourceFingerprints = new Set<string>();
   private sourceSearchQuery = '';
 
-  constructor(store: PromptStore, onClose: PanelCloseCallback, onPersist: () => void) {
+  constructor(store: PromptStore, onClose: PanelCloseCallback, onPersist: () => void, getTheme: () => ThemeMode) {
     this.store = store;
     this.onClose = onClose;
     this.onPersist = onPersist;
+    this.getTheme = getTheme;
   }
 
   open(): void {
@@ -70,9 +73,11 @@ export class PromptPanel {
   private buildPanel(): HTMLElement {
     const overlay = document.createElement('div');
     overlay.className = `${PANEL_CLASS}-overlay`;
+    applyThemeClass(overlay, this.getTheme());
 
     const panel = document.createElement('div');
     panel.className = `${PANEL_CLASS} ${PANEL_CLASS}-v1`;
+    applyThemeClass(panel, this.getTheme());
     panel.addEventListener('click', (event) => event.stopPropagation());
     overlay.addEventListener('click', () => this.close());
 
@@ -87,6 +92,11 @@ export class PromptPanel {
 
   private updatePanelWidth(): void {
     this.panelEl?.classList.toggle('bd-prompt-panel-wide', this.sourceMode !== 'library');
+  }
+
+  setTheme(mode: ThemeMode): void {
+    applyThemeClass(this.container, mode);
+    applyThemeClass(this.panelEl, mode);
   }
 
   private buildHeader(): HTMLElement {
@@ -511,6 +521,7 @@ export class PromptPanel {
   private showVariableForm(prompt: PromptItem, variables: string[]): void {
     const overlay = document.createElement('div');
     overlay.className = 'bd-dialog-overlay';
+    applyThemeClass(overlay, this.getTheme());
 
     const dialog = document.createElement('div');
     dialog.className = 'bd-dialog';
@@ -578,10 +589,41 @@ export class PromptPanel {
       navigator.clipboard.writeText(text).catch(() => {
         console.warn('[BetterDeepSeek] copy fallback failed');
       });
-      alert('未找到输入框，已将提示词内容复制到剪贴板');
+      void this.alertDialog('未找到输入框，已将提示词内容复制到剪贴板');
     }
 
     this.close();
+  }
+
+  private alertDialog(message: string): Promise<void> {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'bd-dialog-overlay';
+      applyThemeClass(overlay, this.getTheme());
+
+      const dialog = document.createElement('div');
+      dialog.className = 'bd-dialog';
+
+      const label = document.createElement('div');
+      label.className = 'bd-dialog-label';
+      label.textContent = message;
+
+      const actions = document.createElement('div');
+      actions.className = 'bd-dialog-actions';
+
+      const okBtn = document.createElement('button');
+      okBtn.className = 'bd-dialog-btn bd-dialog-confirm';
+      okBtn.textContent = '确定';
+      okBtn.addEventListener('click', () => {
+        overlay.remove();
+        resolve();
+      });
+
+      actions.append(okBtn);
+      dialog.append(label, actions);
+      overlay.append(dialog);
+      document.body.append(overlay);
+    });
   }
 
   /* ======== export / import / source ======== */
@@ -789,10 +831,8 @@ export class PromptPanel {
 
     if (stored || added) {
       const badge = document.createElement('span');
-      badge.className = 'bd-pp-badge';
+      badge.className = 'bd-pp-badge bd-pp-badge-success';
       badge.textContent = added ? '已添加' : '✓';
-      badge.style.background = '#f0fdf4';
-      badge.style.color = '#16a34a';
       meta.append(badge);
     }
 
@@ -928,7 +968,7 @@ export class PromptPanel {
         this.selectedSourceIndex = null;
         this.renderBody();
       } catch (err) {
-        alert(`导入失败: ${err instanceof Error ? err.message : '未知错误'}`);
+        void this.alertDialog(`导入失败: ${err instanceof Error ? err.message : '未知错误'}`);
       }
     });
 

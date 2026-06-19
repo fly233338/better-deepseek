@@ -31,6 +31,7 @@ import {
 import { PromptStore } from '../core/promptStore';
 import { PromptStorage } from '../core/promptStorage';
 import { PromptPanel } from './promptPanel';
+import { applyThemeClass, detectThemeMode, observeThemeChanges, type ThemeMode } from './theme';
 
 const ROOT_ID = 'better-deepseek-folders';
 const DRAG_MIME = 'application/x-better-deepseek';
@@ -63,6 +64,8 @@ class BetterDeepSeekFolders {
   private folderSearchQueries = new Map<string, string>();
   private openFolderSearchIds = new Set<string>();
   private hideEnabled = true;
+  private themeMode: ThemeMode = 'light';
+  private stopThemeObserver: (() => void) | null = null;
 
   async mount(): Promise<void> {
     this.store = new FolderStore(await this.storage.load());
@@ -70,10 +73,12 @@ class BetterDeepSeekFolders {
     this.promptStore.seedBuiltins();
     void this.promptStorage.save(this.promptStore.snapshot());
     this.hideEnabled = this.store.getSettings().hideEnabled;
+    this.themeMode = detectThemeMode();
     this.render();
     this.enhanceNativeConversationRows();
     this.refreshNativeConversationVisibility();
     this.observePageChanges();
+    this.observeThemeChanges();
     this.listenNativePinClick();
   }
 
@@ -85,6 +90,7 @@ class BetterDeepSeekFolders {
 
     root.classList.toggle('bd-feature-pin-off', !this.featureEnabled('pinFolders'));
     root.classList.toggle('bd-feature-colors-off', !this.featureEnabled('folderColors'));
+    applyThemeClass(root, this.themeMode);
 
     root.innerHTML = '';
     root.append(this.promptEntryElement());
@@ -151,6 +157,7 @@ class BetterDeepSeekFolders {
         this.promptStore,
         () => { this.promptPanel = null; },
         () => this.persistPromptData(),
+        () => this.themeMode,
       );
       this.promptPanel.open();
     });
@@ -351,14 +358,37 @@ class BetterDeepSeekFolders {
       if (existing.parentElement !== target.sidebar || existing.nextSibling !== target.before) {
         target.sidebar.insertBefore(existing, target.before);
       }
+      applyThemeClass(existing, this.themeMode);
       return existing;
     }
 
     const root = document.createElement('section');
     root.id = ROOT_ID;
     root.className = 'bd-folder-root';
+    applyThemeClass(root, this.themeMode);
     target.sidebar.insertBefore(root, target.before);
     return root;
+  }
+
+  private observeThemeChanges(): void {
+    this.stopThemeObserver?.();
+    this.stopThemeObserver = observeThemeChanges((mode) => {
+      this.themeMode = mode;
+      this.applyThemeToOpenSurfaces();
+    });
+  }
+
+  private applyThemeToOpenSurfaces(): void {
+    applyThemeClass(document.getElementById(ROOT_ID), this.themeMode);
+    this.promptPanel?.setTheme(this.themeMode);
+    for (const element of document.querySelectorAll<HTMLElement>('.bd-dialog-overlay, .bd-prompt-panel-overlay')) {
+      applyThemeClass(element, this.themeMode);
+    }
+  }
+
+  private themeElement<T extends HTMLElement>(element: T): T {
+    applyThemeClass(element, this.themeMode);
+    return element;
   }
 
   private folderElement(folder: Folder, level: number, query: string): HTMLElement {
@@ -806,6 +836,7 @@ class BetterDeepSeekFolders {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'bd-dialog-overlay';
+      this.themeElement(overlay);
 
       const dialog = document.createElement('div');
       dialog.className = 'bd-dialog';
@@ -858,6 +889,7 @@ class BetterDeepSeekFolders {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'bd-dialog-overlay';
+      this.themeElement(overlay);
 
       const dialog = document.createElement('div');
       dialog.className = 'bd-dialog';
@@ -903,6 +935,7 @@ class BetterDeepSeekFolders {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'bd-dialog-overlay';
+      this.themeElement(overlay);
 
       const dialog = document.createElement('div');
       dialog.className = 'bd-dialog';
@@ -1096,6 +1129,7 @@ class BetterDeepSeekFolders {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'bd-dialog-overlay';
+      this.themeElement(overlay);
 
       const dialog = document.createElement('div');
       dialog.className = 'bd-dialog';
@@ -1145,6 +1179,7 @@ class BetterDeepSeekFolders {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'bd-dialog-overlay';
+      this.themeElement(overlay);
 
       const dialog = document.createElement('div');
       dialog.className = 'bd-dialog';
@@ -1183,6 +1218,7 @@ class BetterDeepSeekFolders {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'bd-dialog-overlay';
+      this.themeElement(overlay);
 
       const dialog = document.createElement('div');
       dialog.className = 'bd-dialog';
@@ -1290,6 +1326,8 @@ class BetterDeepSeekFolders {
         this.observerTimer = null;
         this.enhanceNativeConversationRows();
         this.refreshNativeConversationVisibility();
+        this.themeMode = detectThemeMode();
+        this.applyThemeToOpenSurfaces();
         const root = document.getElementById(ROOT_ID);
         const target = findFolderInsertionTarget();
         if (!root || (target && root.parentElement !== target.sidebar)) this.render();
