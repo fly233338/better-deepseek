@@ -10,7 +10,7 @@ import {
   parseMarkdown,
   readJsonFile,
 } from '../core/promptImportExport';
-import { getSourceList, loadSource } from './promptSources';
+import { getSourceList, loadSource, refreshSource } from './promptSources';
 
 const PANEL_CLASS = 'bd-prompt-panel';
 
@@ -30,7 +30,13 @@ export class PromptPanel {
   private isNew = false;
   private sourceMode: 'library' | 'source' | 'import' = 'library';
   private sourcePack: PromptSourceItem[] = [];
+  private sourceRiskCount = 0;
   private selectedSourceIndex: number | null = null;
+  private activeSourceId: string | null = null;
+  private sourceLoading = false;
+  private sourceError: string | null = null;
+  private sourceFallback = false;
+  private addedSourceFingerprints = new Set<string>();
 
   constructor(store: PromptStore, onClose: PanelCloseCallback, onPersist: () => void) {
     this.store = store;
@@ -580,7 +586,13 @@ export class PromptPanel {
   private showSourcePicker(): void {
     this.sourceMode = 'source';
     this.sourcePack = [];
+    this.sourceRiskCount = 0;
     this.selectedSourceIndex = null;
+    this.activeSourceId = null;
+    this.sourceLoading = false;
+    this.sourceError = null;
+    this.sourceFallback = false;
+    this.addedSourceFingerprints.clear();
     this.renderBody();
   }
 
@@ -588,6 +600,8 @@ export class PromptPanel {
     this.sourceMode = 'library';
     this.sourcePack = [];
     this.selectedSourceIndex = null;
+    this.activeSourceId = null;
+    this.addedSourceFingerprints.clear();
     this.renderBody();
   }
 
@@ -615,19 +629,9 @@ export class PromptPanel {
       btn.className = 'bd-pp-filter-btn';
       btn.type = 'button';
       btn.textContent = src.name;
-      btn.addEventListener('click', async () => {
-        btn.textContent = '加载中...';
-        btn.disabled = true;
-        try {
-          const pack = await loadSource(src.id);
-          this.sourceMode = 'source';
-          this.sourcePack = pack.items;
-          this.selectedSourceIndex = null;
-          this.renderBody();
-        } finally {
-          btn.textContent = src.name;
-          btn.disabled = false;
-        }
+      btn.classList.toggle('bd-pp-filter-active', this.activeSourceId === src.id);
+      btn.addEventListener('click', () => {
+        this.selectSource(src.id);
       });
       sidebar.append(btn);
     }
@@ -642,12 +646,73 @@ export class PromptPanel {
     const list = document.createElement('div');
     list.className = 'bd-pp-list';
 
-    if (this.sourcePack.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'bd-pp-empty';
-      empty.textContent = this.sourceMode === 'source' ? '选择一个来源或导入文件开始浏览' : '暂无内容';
-      list.append(empty);
+    this.buildSourceToolbar(list);
+
+    if (this.sourceLoading) {
+      const loading = document.createElement('div');
+      loading.className = 'bd-pp-empty';
+      loading.textContent = '正在加载...';
+      list.append(loading);
+    } else if (this.sourceError) {
+      const errBox = document.createElement('div');
+      errBox.className = 'bd-pp-source-error';
+
+      const errMsg = document.createElement('div');
+      errMsg.className = 'bd-pp-source-error-msg';
+      errMsg.textContent = `加载失败: ${this.sourceError}`;
+      errBox.append(errMsg);
+
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'bd-pp-action-btn';
+      retryBtn.textContent = '重试刷新';
+      retryBtn.addEventListener('click', () => this.activeSourceId && this.fetchSource(this.activeSourceId, true));
+
+      const openBtn = document.createElement('button');
+      openBtn.className = 'bd-pp-action-btn';
+      openBtn.textContent = '打开官方网页';
+      openBtn.addEventListener('click', () => {
+        const src = getSourceList().find((s) => s.id === this.activeSourceId);
+        if (src) window.open(src.homepage, '_blank');
+      });
+
+      const fallbackBtn = document.createElement('button');
+      fallbackBtn.className = 'bd-pp-action-btn';
+      fallbackBtn.textContent = '查看离线快照';
+      fallbackBtn.addEventListener('click', () => {
+        if (!this.activeSourceId) return;
+        this.sourceFallback = true;
+        this.fetchSource(this.activeSourceId, false);
+      });
+
+      errBox.append(retryBtn, openBtn, fallbackBtn);
+      list.append(errBox);
+    } else if (this.sourcePack.length === 0) {
+      if (this.activeSourceId) {
+        const empty = document.createElement('div');
+        empty.className = 'bd-pp-empty';
+        empty.textContent = '点击上方「刷新」按钮获取最新提示词';
+        list.append(empty);
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'bd-pp-empty';
+        empty.textContent = '选择一个来源开始浏览';
+        list.append(empty);
+      }
     } else {
+      const statBar = document.createElement('div');
+      statBar.className = 'bd-pp-source-stats';
+      const available = this.sourcePack.filter(
+        (item) => !this.store.hasFingerprint(item.fingerprint) && !this.addedSourceFingerprints.has(item.fingerprint),
+      ).length;
+      statBar.textContent = `${this.sourcePack.length} 条${available > 0 ? `，${available} 条可添加` : ''}`;
+      if (this.sourceRiskCount > 0) {
+        statBar.textContent += ` · 已过滤 ${this.sourceRiskCount} 条风险内容`;
+      }
+      if (this.sourceFallback) {
+        statBar.textContent += ' · 离线兜底';
+      }
+      list.append(statBar);
+
       for (let i = 0; i < this.sourcePack.length; i++) {
         const item = this.sourcePack[i];
         const card = this.buildSourceCard(item, i);
@@ -656,9 +721,89 @@ export class PromptPanel {
     }
 
     const detail = this.buildSourceDetail();
-
     wrapper.append(sidebar, list, detail);
     return wrapper;
+  }
+
+  private buildSourceToolbar(parent: HTMLElement): void {
+    if (!this.activeSourceId) return;
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'bd-pp-source-toolbar';
+
+    const name = document.createElement('span');
+    name.className = 'bd-pp-source-name';
+
+    const src = getSourceList().find((s) => s.id === this.activeSourceId);
+    name.textContent = src?.name ?? this.activeSourceId;
+    toolbar.append(name);
+
+    const refreshBtn = document.createElement('button');
+    refreshBtn.className = 'bd-pp-action-btn';
+    refreshBtn.textContent = '刷新';
+    refreshBtn.disabled = this.sourceLoading;
+    refreshBtn.addEventListener('click', () => this.fetchSource(this.activeSourceId!, true));
+    toolbar.append(refreshBtn);
+
+    const linkBtn = document.createElement('button');
+    linkBtn.className = 'bd-pp-action-btn';
+    linkBtn.textContent = '↗';
+    linkBtn.title = '打开官方网页';
+    linkBtn.addEventListener('click', () => {
+      if (src) window.open(src.homepage, '_blank');
+    });
+    toolbar.append(linkBtn);
+
+    parent.append(toolbar);
+  }
+
+  private selectSource(sourceId: string): void {
+    this.activeSourceId = sourceId;
+    this.sourceError = null;
+    this.sourceFallback = false;
+    this.addedSourceFingerprints.clear();
+    this.selectedSourceIndex = null;
+    this.fetchSource(sourceId, false);
+  }
+
+  private async fetchSource(sourceId: string, forceRefresh: boolean): Promise<void> {
+    this.sourceLoading = true;
+    this.sourceError = null;
+    this.sourcePack = [];
+    this.sourceRiskCount = 0;
+    this.selectedSourceIndex = null;
+    this.renderBody();
+
+    try {
+      let pack;
+      if (forceRefresh || this.sourceFallback) {
+        pack = forceRefresh
+          ? await refreshSource(sourceId as 'deepseek-official' | 'github-deepseek')
+          : await loadSource(sourceId as 'deepseek-official' | 'github-deepseek');
+      } else {
+        pack = await loadSource(sourceId as 'deepseek-official' | 'github-deepseek');
+      }
+
+      this.sourcePack = pack.items;
+      this.sourceRiskCount = pack.risks?.length ?? 0;
+      this.sourceLoading = false;
+      this.renderBody();
+    } catch (err) {
+      this.sourceLoading = false;
+      this.sourceError = err instanceof Error ? err.message : '未知错误';
+      if (!forceRefresh && !this.sourceFallback) {
+        this.sourceFallback = true;
+        try {
+          const fallback = await loadSource(sourceId as 'deepseek-official' | 'github-deepseek');
+          this.sourcePack = fallback.items;
+          this.sourceRiskCount = fallback.risks?.length ?? 0;
+          this.sourceError = null;
+        } catch {
+          // keep error
+        }
+      }
+      this.renderBody();
+    }
   }
 
   private buildSourceCard(item: PromptSourceItem, index: number): HTMLElement {
@@ -670,7 +815,8 @@ export class PromptPanel {
       this.renderBody();
     });
 
-    const exists = this.store.hasFingerprint(item.fingerprint);
+    const stored = this.store.hasFingerprint(item.fingerprint);
+    const added = this.addedSourceFingerprints.has(item.fingerprint);
 
     const header = document.createElement('div');
     header.className = 'bd-pp-card-header';
@@ -682,10 +828,10 @@ export class PromptPanel {
     const meta = document.createElement('span');
     meta.className = 'bd-pp-card-meta';
 
-    if (exists) {
+    if (stored || added) {
       const badge = document.createElement('span');
       badge.className = 'bd-pp-badge';
-      badge.textContent = '已存在';
+      badge.textContent = added ? '已添加' : '已存在';
       badge.style.background = '#f0fdf4';
       badge.style.color = '#16a34a';
       meta.append(badge);
@@ -728,7 +874,8 @@ export class PromptPanel {
     }
 
     const item = this.sourcePack[this.selectedSourceIndex];
-    const exists = this.store.hasFingerprint(item.fingerprint);
+    const stored = this.store.hasFingerprint(item.fingerprint);
+    const added = this.addedSourceFingerprints.has(item.fingerprint);
 
     const header = document.createElement('div');
     header.className = 'bd-pp-detail-header';
@@ -739,7 +886,7 @@ export class PromptPanel {
 
     const meta = document.createElement('div');
     meta.className = 'bd-pp-detail-meta';
-    meta.textContent = `来源: ${item.sourceName}${exists ? ' · 已存在于库中' : ''}`;
+    meta.textContent = `来源: ${item.sourceName}${stored || added ? ' · 已添加' : ''}`;
 
     header.append(title, meta);
 
@@ -759,7 +906,7 @@ export class PromptPanel {
     const actions = document.createElement('div');
     actions.className = 'bd-pp-detail-actions';
 
-    if (!exists) {
+    if (!stored && !added) {
       const addBtn = document.createElement('button');
       addBtn.className = 'bd-pp-use-btn';
       addBtn.type = 'button';
@@ -767,8 +914,7 @@ export class PromptPanel {
       addBtn.addEventListener('click', () => {
         this.store.addFromSource(item, false);
         this.onPersist();
-        this.sourcePack = this.sourcePack.filter((_, j) => j !== this.selectedSourceIndex);
-        this.selectedSourceIndex = null;
+        this.addedSourceFingerprints.add(item.fingerprint);
         this.renderBody();
       });
       actions.append(addBtn);
@@ -780,18 +926,17 @@ export class PromptPanel {
       favAddBtn.addEventListener('click', () => {
         this.store.addFromSource(item, true);
         this.onPersist();
-        this.sourcePack = this.sourcePack.filter((_, j) => j !== this.selectedSourceIndex);
-        this.selectedSourceIndex = null;
+        this.addedSourceFingerprints.add(item.fingerprint);
         this.renderBody();
       });
       actions.append(favAddBtn);
     } else {
-      const viewBtn = document.createElement('button');
-      viewBtn.className = 'bd-pp-action-btn';
-      viewBtn.type = 'button';
-      viewBtn.textContent = '已在库中';
-      viewBtn.disabled = true;
-      actions.append(viewBtn);
+      const doneBtn = document.createElement('button');
+      doneBtn.className = 'bd-pp-action-btn';
+      doneBtn.type = 'button';
+      doneBtn.textContent = added ? '已添加' : '已在库中';
+      doneBtn.disabled = true;
+      actions.append(doneBtn);
     }
 
     detail.append(header, content, tagsRow, actions);
