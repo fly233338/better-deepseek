@@ -77,8 +77,27 @@
   padding: 8px 10px 8px calc(20px + var(--bd-level, 0) * 12px);
 }
 
-.bd-sidebar-section {
+.bd-sidebar-section,
+.bd-native-chat-section {
   margin-top: 12px;
+}
+
+.bd-native-chat-section {
+  box-sizing: border-box;
+  width: auto;
+  margin: 12px 10px 4px;
+  color: #263247;
+  font: 14px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.bd-native-chat-section svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.bd-native-chat-section-hidden {
+  display: none !important;
 }
 
 .bd-section-header {
@@ -127,13 +146,13 @@
   margin-bottom: 8px;
   border: 0;
   border-radius: 12px;
-  padding: 0 4px;
+  padding: 0 12px;
   background: transparent;
   color: #111827;
   cursor: pointer;
   font: inherit;
   font-size: 14px;
-  font-weight: normal;
+  font-weight: 650;
   text-align: left;
 }
 
@@ -146,21 +165,6 @@
 .bd-prompt-entry-active {
   background: #eef5ff;
   color: #3f67e8;
-}
-
-.bd-separator {
-  width: 60%;
-  height: 1px;
-  margin: 16px auto 12px;
-  border: 0;
-  background: #d8e4f5;
-}
-
-.bd-chat-label {
-  padding: 6px 0 4px;
-  font-size: 15px;
-  font-weight: 800;
-  color: #111827;
 }
 
 .bd-prompt-panel {
@@ -479,30 +483,11 @@
   margin-left: 4px;
 }
 
-.bd-native-action-btn {
+.bd-native-pin-button {
   width: 22px;
   height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  margin-left: 2px;
-  background: transparent;
-  color: #7a8494;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 100ms ease, color 100ms ease;
-}
-
-.bd-native-action-btn:hover {
-  background: #eef5ff;
-  color: #4f7cff;
-}
-
-.bd-native-action-btn svg {
-  width: 14px;
-  height: 14px;
+  margin-left: 4px;
+  color: #708098;
 }
 
 .bd-native-hidden {

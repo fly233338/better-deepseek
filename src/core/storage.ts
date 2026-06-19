@@ -24,6 +24,7 @@ const emptyFolderData = (): FolderData => ({
   settings: {
     hideEnabled: true,
     foldersExpanded: true,
+    chatsExpanded: true,
     pinnedExpanded: true,
     features: DEFAULT_FEATURES,
   },

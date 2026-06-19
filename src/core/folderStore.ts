@@ -22,6 +22,7 @@ const DEFAULT_FEATURES: FolderFeatureSettings = {
 const DEFAULT_SETTINGS: FolderSettings = {
   hideEnabled: true,
   foldersExpanded: true,
+  chatsExpanded: true,
   pinnedExpanded: true,
   features: DEFAULT_FEATURES,
 };
@@ -125,24 +126,6 @@ export class FolderStore {
 
   isConversationPinned(conversationId: string): boolean {
     return Boolean(this.data.pinnedConversations?.some((item) => item.conversationId === conversationId));
-  }
-
-  renameConversation(conversationId: string, title: string): void {
-    for (const conversations of Object.values(this.data.folderContents)) {
-      for (const item of conversations) {
-        if (item.conversationId === conversationId) {
-          item.title = title;
-          item.updatedAt = Date.now();
-        }
-      }
-    }
-    const pinned = this.data.pinnedConversations ?? [];
-    for (const item of pinned) {
-      if (item.conversationId === conversationId) {
-        item.title = title;
-        item.updatedAt = Date.now();
-      }
-    }
   }
 
   setFolderColor(folderId: FolderId, color: string | undefined): void {
