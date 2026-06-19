@@ -7,6 +7,7 @@ const QUOTE_BAR_CLASS = 'bd-quote-bar';
 const QUOTE_ATTR = 'data-bd-quote';
 
 let currentQuoteText = '';
+let quoteSourceEl: HTMLElement | null = null;
 let floatingBtn: HTMLButtonElement | null = null;
 let quoteBar: HTMLElement | null = null;
 let currentLocale: AppLocale = 'en-US';
@@ -59,7 +60,27 @@ function removeQuoteBar(): void {
 
 function clearQuote(): void {
   currentQuoteText = '';
+  quoteSourceEl = null;
   removeQuoteBar();
+}
+
+function findMessageContainer(node: Node): HTMLElement | null {
+  let el: HTMLElement | null = node instanceof HTMLElement ? node : node.parentElement;
+  const root = document.getElementById('root');
+  if (!root) return null;
+  while (el && el !== root) {
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 200 && rect.height > 20) return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
+function scrollToSource(): void {
+  if (!quoteSourceEl) return;
+  quoteSourceEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  quoteSourceEl.classList.add('bd-quote-highlight');
+  setTimeout(() => quoteSourceEl?.classList.remove('bd-quote-highlight'), 2000);
 }
 
 function injectQuoteToComposer(): boolean {
@@ -127,6 +148,11 @@ function createQuoteBar(locale: AppLocale, theme: ThemeMode, text: string): HTML
   dismissBtn.textContent = '×';
   dismissBtn.addEventListener('click', clearQuote);
 
+  bar.addEventListener('click', (event) => {
+    if ((event.target as HTMLElement).closest('.bd-quote-bar-dismiss')) return;
+    scrollToSource();
+  });
+
   bar.append(icon, preview, dismissBtn);
 
   const input = findComposerInput();
@@ -175,6 +201,7 @@ function createFloatingBtn(locale: AppLocale, theme: ThemeMode, selection: Selec
     if (!selectedText) return;
 
     currentQuoteText = selectedText;
+    quoteSourceEl = findMessageContainer(selection.getRangeAt(0).commonAncestorContainer);
     createQuoteBar(locale, theme, selectedText);
     removeFloatingBtn();
   });

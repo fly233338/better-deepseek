@@ -1309,7 +1309,9 @@
   font: 12px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--bd-text);
   width: 980;
-  max-width: 400px;
+  max-width: 800px;   /* 或你想要的 px 值 */
+  margin-left: 35px;
+  margin-right: 35px;
 }
 
 .bd-quote-bar-icon {
@@ -1328,6 +1330,16 @@
   color: #8d9aaf;
   font-size: 12px;
   line-height: 1.4;
+  cursor: pointer;
+}
+
+.bd-quote-highlight {
+  animation: bd-quote-flash 2s ease-out;
+}
+
+@keyframes bd-quote-flash {
+  0% { background-color: rgba(100, 200, 180, 0.25); }
+  100% { background-color: transparent; }
 }
 
 .bd-quote-bar-dismiss {
@@ -1350,3 +1362,4 @@
   background: #e0e8f3;
   color: #6b7484;
 }
+
