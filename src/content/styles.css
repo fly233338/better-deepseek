@@ -133,7 +133,7 @@
   cursor: pointer;
   font: inherit;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 400;
   text-align: left;
 }
 
@@ -149,7 +149,7 @@
 }
 
 .bd-separator {
-  width: 60%;
+  width: 80%;
   height: 1px;
   margin: 16px auto 12px;
   border: 0;
