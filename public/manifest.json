@@ -4,7 +4,12 @@
   "description": "Add local folder management to DeepSeek web.",
   "version": "0.1.0",
   "permissions": ["storage"],
-  "host_permissions": ["https://chat.deepseek.com/*", "https://www.deepseek.com/*"],
+  "host_permissions": [
+    "https://chat.deepseek.com/*",
+    "https://www.deepseek.com/*",
+    "https://raw.githubusercontent.com/*",
+    "https://api-docs.deepseek.com/*"
+  ],
   "content_scripts": [
     {
       "matches": ["https://chat.deepseek.com/*"],

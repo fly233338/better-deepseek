@@ -1,6 +1,16 @@
-import type { PromptFilter, PromptId, PromptItem } from '../core/promptTypes';
+import type { PromptFilter, PromptId, PromptItem, PromptSourceItem } from '../core/promptTypes';
 import type { PromptStore } from '../core/promptStore';
 import { fillComposerText, findComposerInput } from '../deepseek/composer';
+import {
+  createExportPayload,
+  downloadJson,
+  generateExportFilename,
+  parseBetterDeepSeekJson,
+  parseCsv,
+  parseMarkdown,
+  readJsonFile,
+} from '../core/promptImportExport';
+import { getSourceList, loadSource } from './promptSources';
 
 const PANEL_CLASS = 'bd-prompt-panel';
 
@@ -18,6 +28,9 @@ export class PromptPanel {
   private activeTag: string | null = null;
   private editingId: PromptId | null = null;
   private isNew = false;
+  private sourceMode: 'library' | 'source' | 'import' = 'library';
+  private sourcePack: PromptSourceItem[] = [];
+  private selectedSourceIndex: number | null = null;
 
   constructor(store: PromptStore, onClose: PanelCloseCallback, onPersist: () => void) {
     this.store = store;
@@ -86,13 +99,25 @@ export class PromptPanel {
     newBtn.textContent = '新建';
     newBtn.addEventListener('click', () => this.startCreate());
 
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'bd-pp-action-btn';
+    exportBtn.type = 'button';
+    exportBtn.textContent = '导出';
+    exportBtn.addEventListener('click', () => this.exportAll());
+
+    const importBtn = document.createElement('button');
+    importBtn.className = 'bd-pp-action-btn';
+    importBtn.type = 'button';
+    importBtn.textContent = '导入/来源';
+    importBtn.addEventListener('click', () => this.showSourcePicker());
+
     const closeBtn = document.createElement('button');
     closeBtn.className = 'bd-pp-close-btn';
     closeBtn.type = 'button';
     closeBtn.textContent = '✕';
     closeBtn.addEventListener('click', () => this.close());
 
-    header.append(title, search, newBtn, closeBtn);
+    header.append(title, search, newBtn, exportBtn, importBtn, closeBtn);
     return header;
   }
 
@@ -100,7 +125,12 @@ export class PromptPanel {
     const body = document.createElement('div');
     body.className = 'bd-pp-body';
 
-    body.append(this.buildSidebar(), this.buildList(), this.buildDetail());
+    if (this.sourceMode === 'library') {
+      body.append(this.buildSidebar(), this.buildList(), this.buildDetail());
+    } else {
+      body.append(this.buildSourceView());
+    }
+
     return body;
   }
 
@@ -537,5 +567,267 @@ export class PromptPanel {
     }
 
     this.close();
+  }
+
+  /* ======== export / import / source ======== */
+
+  private exportAll(): void {
+    const data = this.store.snapshot();
+    const json = createExportPayload(data.prompts);
+    downloadJson(json, generateExportFilename());
+  }
+
+  private showSourcePicker(): void {
+    this.sourceMode = 'source';
+    this.sourcePack = [];
+    this.selectedSourceIndex = null;
+    this.renderBody();
+  }
+
+  private backToLibrary(): void {
+    this.sourceMode = 'library';
+    this.sourcePack = [];
+    this.selectedSourceIndex = null;
+    this.renderBody();
+  }
+
+  private buildSourceView(): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'bd-pp-source-view';
+
+    const sidebar = document.createElement('div');
+    sidebar.className = 'bd-pp-sidebar';
+
+    const backBtn = document.createElement('button');
+    backBtn.className = 'bd-pp-filter-btn';
+    backBtn.type = 'button';
+    backBtn.textContent = '← 返回库';
+    backBtn.addEventListener('click', () => this.backToLibrary());
+    sidebar.append(backBtn);
+
+    const sep = document.createElement('div');
+    sep.className = 'bd-pp-sidebar-sep';
+    sidebar.append(sep);
+
+    const sourceList = getSourceList();
+    for (const src of sourceList) {
+      const btn = document.createElement('button');
+      btn.className = 'bd-pp-filter-btn';
+      btn.type = 'button';
+      btn.textContent = src.name;
+      btn.addEventListener('click', async () => {
+        btn.textContent = '加载中...';
+        btn.disabled = true;
+        try {
+          const pack = await loadSource(src.id);
+          this.sourceMode = 'source';
+          this.sourcePack = pack.items;
+          this.selectedSourceIndex = null;
+          this.renderBody();
+        } finally {
+          btn.textContent = src.name;
+          btn.disabled = false;
+        }
+      });
+      sidebar.append(btn);
+    }
+
+    const importFileBtn = document.createElement('button');
+    importFileBtn.className = 'bd-pp-filter-btn';
+    importFileBtn.type = 'button';
+    importFileBtn.textContent = '从文件导入';
+    importFileBtn.addEventListener('click', () => this.importFile());
+    sidebar.append(importFileBtn);
+
+    const list = document.createElement('div');
+    list.className = 'bd-pp-list';
+
+    if (this.sourcePack.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'bd-pp-empty';
+      empty.textContent = this.sourceMode === 'source' ? '选择一个来源或导入文件开始浏览' : '暂无内容';
+      list.append(empty);
+    } else {
+      for (let i = 0; i < this.sourcePack.length; i++) {
+        const item = this.sourcePack[i];
+        const card = this.buildSourceCard(item, i);
+        list.append(card);
+      }
+    }
+
+    const detail = this.buildSourceDetail();
+
+    wrapper.append(sidebar, list, detail);
+    return wrapper;
+  }
+
+  private buildSourceCard(item: PromptSourceItem, index: number): HTMLElement {
+    const card = document.createElement('div');
+    card.className = 'bd-pp-card';
+    card.classList.toggle('bd-pp-card-selected', this.selectedSourceIndex === index);
+    card.addEventListener('click', () => {
+      this.selectedSourceIndex = index;
+      this.renderBody();
+    });
+
+    const exists = this.store.hasFingerprint(item.fingerprint);
+
+    const header = document.createElement('div');
+    header.className = 'bd-pp-card-header';
+
+    const title = document.createElement('span');
+    title.className = 'bd-pp-card-title';
+    title.textContent = item.title;
+
+    const meta = document.createElement('span');
+    meta.className = 'bd-pp-card-meta';
+
+    if (exists) {
+      const badge = document.createElement('span');
+      badge.className = 'bd-pp-badge';
+      badge.textContent = '已存在';
+      badge.style.background = '#f0fdf4';
+      badge.style.color = '#16a34a';
+      meta.append(badge);
+    }
+
+    const srcBadge = document.createElement('span');
+    srcBadge.className = 'bd-pp-badge';
+    srcBadge.textContent = item.sourceName.slice(0, 10);
+    meta.append(srcBadge);
+
+    header.append(title, meta);
+
+    const desc = document.createElement('div');
+    desc.className = 'bd-pp-card-desc';
+    desc.textContent = item.description;
+
+    const tagsRow = document.createElement('div');
+    tagsRow.className = 'bd-pp-card-tags';
+    for (const tag of item.tags) {
+      const t = document.createElement('span');
+      t.className = 'bd-pp-tag-pill';
+      t.textContent = tag;
+      tagsRow.append(t);
+    }
+
+    card.append(header, desc, tagsRow);
+    return card;
+  }
+
+  private buildSourceDetail(): HTMLElement {
+    const detail = document.createElement('div');
+    detail.className = 'bd-pp-detail';
+
+    if (this.selectedSourceIndex === null || !this.sourcePack[this.selectedSourceIndex]) {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'bd-pp-detail-placeholder';
+      placeholder.textContent = '选择左侧 Prompt 查看详情';
+      detail.append(placeholder);
+      return detail;
+    }
+
+    const item = this.sourcePack[this.selectedSourceIndex];
+    const exists = this.store.hasFingerprint(item.fingerprint);
+
+    const header = document.createElement('div');
+    header.className = 'bd-pp-detail-header';
+
+    const title = document.createElement('div');
+    title.className = 'bd-pp-detail-title';
+    title.textContent = item.title;
+
+    const meta = document.createElement('div');
+    meta.className = 'bd-pp-detail-meta';
+    meta.textContent = `来源: ${item.sourceName}${exists ? ' · 已存在于库中' : ''}`;
+
+    header.append(title, meta);
+
+    const content = document.createElement('div');
+    content.className = 'bd-pp-detail-content';
+    content.textContent = item.content;
+
+    const tagsRow = document.createElement('div');
+    tagsRow.className = 'bd-pp-detail-tags';
+    for (const tag of item.tags) {
+      const t = document.createElement('span');
+      t.className = 'bd-pp-tag-pill';
+      t.textContent = tag;
+      tagsRow.append(t);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'bd-pp-detail-actions';
+
+    if (!exists) {
+      const addBtn = document.createElement('button');
+      addBtn.className = 'bd-pp-use-btn';
+      addBtn.type = 'button';
+      addBtn.textContent = '添加到我的库';
+      addBtn.addEventListener('click', () => {
+        this.store.addFromSource(item, false);
+        this.onPersist();
+        this.sourcePack = this.sourcePack.filter((_, j) => j !== this.selectedSourceIndex);
+        this.selectedSourceIndex = null;
+        this.renderBody();
+      });
+      actions.append(addBtn);
+
+      const favAddBtn = document.createElement('button');
+      favAddBtn.className = 'bd-pp-action-btn';
+      favAddBtn.type = 'button';
+      favAddBtn.textContent = '收藏并添加';
+      favAddBtn.addEventListener('click', () => {
+        this.store.addFromSource(item, true);
+        this.onPersist();
+        this.sourcePack = this.sourcePack.filter((_, j) => j !== this.selectedSourceIndex);
+        this.selectedSourceIndex = null;
+        this.renderBody();
+      });
+      actions.append(favAddBtn);
+    } else {
+      const viewBtn = document.createElement('button');
+      viewBtn.className = 'bd-pp-action-btn';
+      viewBtn.type = 'button';
+      viewBtn.textContent = '已在库中';
+      viewBtn.disabled = true;
+      actions.append(viewBtn);
+    }
+
+    detail.append(header, content, tagsRow, actions);
+    return detail;
+  }
+
+  private async importFile(): Promise<void> {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,.csv,.md,.txt';
+
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      try {
+        const text = await readJsonFile(file);
+        let pack;
+
+        if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+          pack = parseCsv(text);
+        } else if (file.name.endsWith('.md')) {
+          pack = parseMarkdown(text);
+        } else {
+          pack = parseBetterDeepSeekJson(text);
+        }
+
+        this.sourceMode = 'source';
+        this.sourcePack = pack.items;
+        this.selectedSourceIndex = null;
+        this.renderBody();
+      } catch (err) {
+        alert(`导入失败: ${err instanceof Error ? err.message : '未知错误'}`);
+      }
+    });
+
+    input.click();
   }
 }

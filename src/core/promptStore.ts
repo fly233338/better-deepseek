@@ -1,5 +1,5 @@
 import { createId } from './id';
-import type { PromptData, PromptFilter, PromptId, PromptItem } from './promptTypes';
+import type { PromptData, PromptFilter, PromptId, PromptItem, PromptSourceItem } from './promptTypes';
 
 const BUILTIN_PROMPT_VERSION = 2;
 const BUILTIN_TITLE_ALIASES = new Map([
@@ -236,6 +236,37 @@ export class PromptStore {
     return clonePromptData(this.data);
   }
 
+  addFromSource(item: PromptSourceItem, favorite = false): PromptItem | null {
+    if (this.hasFingerprint(item.fingerprint)) return null;
+
+    const now = Date.now();
+    const prompt: PromptItem = {
+      id: createId('prompt'),
+      title: item.title,
+      description: item.description,
+      content: item.content,
+      tags: item.tags,
+      favorite,
+      source: 'imported',
+      sourceName: item.sourceName,
+      sourceUrl: item.sourceUrl,
+      fingerprint: item.fingerprint,
+      createdAt: now,
+      updatedAt: now,
+      usageCount: 0,
+    };
+    this.data.prompts.push(prompt);
+    return { ...prompt };
+  }
+
+  hasFingerprint(fp: string): boolean {
+    return this.data.prompts.some((p) => p.fingerprint === fp);
+  }
+
+  findByFingerprint(fp: string): PromptItem | undefined {
+    return this.data.prompts.find((p) => p.fingerprint === fp);
+  }
+
   seedBuiltins(): PromptItem[] {
     if ((this.data.builtinVersion ?? 0) >= BUILTIN_PROMPT_VERSION) return [];
 
@@ -274,6 +305,7 @@ export class PromptStore {
     if (filter === 'favorites') result = result.filter((p) => p.favorite);
     else if (filter === 'builtin') result = result.filter((p) => p.source === 'builtin');
     else if (filter === 'user') result = result.filter((p) => p.source === 'user');
+    else if (filter === 'imported') result = result.filter((p) => p.source === 'imported');
 
     if (tag) result = result.filter((p) => p.tags.includes(tag));
 
@@ -315,6 +347,7 @@ export class PromptStore {
       tags: fields.tags.filter(Boolean),
       favorite: fields.favorite ?? false,
       source: 'user',
+      fingerprint: computeFingerprint(fields.title, fields.content),
       createdAt: now,
       updatedAt: now,
       usageCount: 0,
@@ -354,6 +387,9 @@ export class PromptStore {
       id: createId('prompt'),
       title: `${original.title} (副本)`,
       source: 'user',
+      sourceName: undefined,
+      sourceUrl: undefined,
+      fingerprint: computeFingerprint(`${original.title} (副本)`, original.content),
       createdAt: now,
       updatedAt: now,
       usageCount: 0,
@@ -420,4 +456,20 @@ function clonePromptData(data: PromptData): PromptData {
     seededAt: data.seededAt,
     builtinVersion: data.builtinVersion,
   };
+}
+
+export function computeFingerprint(title: string, content: string): string {
+  const t = title.trim().toLowerCase().replace(/\s+/g, ' ');
+  const c = content.trim().toLowerCase().replace(/\s+/g, ' ');
+  return `${t}::${c}`;
+}
+
+const RISK_KEYWORDS = [
+  'jailbreak', '越狱', 'dan ', 'nsfw', '露骨', '色情',
+  '违法', 'illegal', 'hack', 'exploit', '暴力',
+];
+
+export function isRiskPrompt(item: { title: string; description: string; content: string; tags: string[] }): boolean {
+  const combined = `${item.title} ${item.description} ${item.content} ${item.tags.join(' ')}`.toLowerCase();
+  return RISK_KEYWORDS.some((kw) => combined.includes(kw));
 }
