@@ -20,7 +20,13 @@ export interface FolderStorage {
 const emptyFolderData = (): FolderData => ({
   folders: [],
   folderContents: {},
-  settings: { hideEnabled: true, features: DEFAULT_FEATURES },
+  pinnedConversations: [],
+  settings: {
+    hideEnabled: true,
+    foldersExpanded: true,
+    pinnedExpanded: true,
+    features: DEFAULT_FEATURES,
+  },
 });
 
 function isFolderData(value: unknown): value is FolderData {

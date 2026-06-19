@@ -12,8 +12,10 @@ export interface FolderExportPayload {
 export interface FolderImportStats {
   foldersImported: number;
   conversationsImported: number;
+  pinnedConversationsImported: number;
   duplicateFoldersSkipped: number;
   duplicateConversationsSkipped: number;
+  duplicatePinnedConversationsSkipped: number;
 }
 
 export function createFolderExportPayload(data: FolderData, exportedAt = new Date().toISOString()): FolderExportPayload {
@@ -102,17 +104,37 @@ export function mergeFolderImport(
     folderContents[folderId] = target;
   }
 
+  const pinnedConversations = (current.pinnedConversations ?? []).map((conversation) => ({ ...conversation }));
+  const existingPinnedConversationIds = new Set(
+    pinnedConversations.map((conversation) => conversation.conversationId),
+  );
+  let pinnedConversationsImported = 0;
+  let duplicatePinnedConversationsSkipped = 0;
+
+  for (const conversation of payload.data.pinnedConversations ?? []) {
+    if (existingPinnedConversationIds.has(conversation.conversationId)) {
+      duplicatePinnedConversationsSkipped += 1;
+    } else {
+      pinnedConversations.push({ ...conversation, sortIndex: pinnedConversations.length });
+      existingPinnedConversationIds.add(conversation.conversationId);
+      pinnedConversationsImported += 1;
+    }
+  }
+
   return {
     data: {
       folders: [...current.folders.map((folder) => ({ ...folder })), ...importedFolders],
       folderContents,
+      pinnedConversations,
       settings: current.settings ? { ...current.settings } : payload.data.settings,
     },
     stats: {
       foldersImported: importedFolders.length,
       conversationsImported,
+      pinnedConversationsImported,
       duplicateFoldersSkipped,
       duplicateConversationsSkipped,
+      duplicatePinnedConversationsSkipped,
     },
   };
 }
