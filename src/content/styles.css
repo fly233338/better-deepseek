@@ -1071,6 +1071,31 @@
   min-height: 0;
 }
 
+.bd-pp-source-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.bd-pp-source-topbar {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #edf0f5;
+  flex: 0 0 auto;
+}
+
+.bd-pp-source-searchwide {
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* keep old toolbar for compatibility */
 .bd-pp-source-toolbar {
   display: flex;
   align-items: center;

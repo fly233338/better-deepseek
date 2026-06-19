@@ -38,7 +38,6 @@ export class PromptPanel {
   private sourceFallback = false;
   private addedSourceFingerprints = new Set<string>();
   private sourceSearchQuery = '';
-  private sourceCategoryFilter: string | null = null;
 
   constructor(store: PromptStore, onClose: PanelCloseCallback, onPersist: () => void) {
     this.store = store;
@@ -124,7 +123,7 @@ export class PromptPanel {
     const importBtn = document.createElement('button');
     importBtn.className = 'bd-pp-action-btn';
     importBtn.type = 'button';
-    importBtn.textContent = '导入/来源';
+    importBtn.textContent = '导入';
     importBtn.addEventListener('click', () => this.showSourcePicker());
 
     const closeBtn = document.createElement('button');
@@ -619,54 +618,64 @@ export class PromptPanel {
     const wrapper = document.createElement('div');
     wrapper.className = 'bd-pp-source-view';
 
-    const sidebar = document.createElement('div');
-    sidebar.className = 'bd-pp-sidebar';
+    const left = document.createElement('div');
+    left.className = 'bd-pp-source-left';
+
+    const topBar = document.createElement('div');
+    topBar.className = 'bd-pp-source-topbar';
 
     const backBtn = document.createElement('button');
-    backBtn.className = 'bd-pp-filter-btn';
+    backBtn.className = 'bd-pp-action-btn';
     backBtn.type = 'button';
     backBtn.textContent = '← 返回库';
     backBtn.addEventListener('click', () => this.backToLibrary());
-    sidebar.append(backBtn);
-
-    const sep = document.createElement('div');
-    sep.className = 'bd-pp-sidebar-sep';
-    sidebar.append(sep);
-
-    const sourceList = getSourceList();
-    for (const src of sourceList) {
-      const btn = document.createElement('button');
-      btn.className = 'bd-pp-filter-btn';
-      btn.type = 'button';
-      btn.textContent = src.name;
-      btn.classList.toggle('bd-pp-filter-active', Boolean(this.activeSourceId));
-      btn.addEventListener('click', () => {
-        this.selectSource();
-      });
-      sidebar.append(btn);
-    }
+    topBar.append(backBtn);
 
     const importFileBtn = document.createElement('button');
-    importFileBtn.className = 'bd-pp-filter-btn';
+    importFileBtn.className = 'bd-pp-action-btn';
     importFileBtn.type = 'button';
     importFileBtn.textContent = '从文件导入';
     importFileBtn.addEventListener('click', () => this.importFile());
-    sidebar.append(importFileBtn);
+    topBar.append(importFileBtn);
 
-    const list = document.createElement('div');
-    list.className = 'bd-pp-list';
+    const search = document.createElement('input');
+    search.className = 'bd-pp-search bd-pp-source-searchwide';
+    search.type = 'search';
+    search.placeholder = '在官方仓库搜索';
+    search.value = this.sourceSearchQuery;
+    search.addEventListener('input', () => {
+      this.sourceSearchQuery = search.value;
+      this.renderBody();
+    });
+    topBar.append(search);
 
-    this.buildSourceToolbar(list);
+    const refreshBtn = document.createElement('button');
+    refreshBtn.className = 'bd-pp-action-btn';
+    refreshBtn.textContent = '刷新';
+    refreshBtn.disabled = this.sourceLoading;
+    refreshBtn.addEventListener('click', () => this.fetchSource(true));
+    topBar.append(refreshBtn);
+
+    const linkBtn = document.createElement('button');
+    linkBtn.className = 'bd-pp-action-btn';
+    linkBtn.textContent = '↗';
+    linkBtn.title = '打开仓库文档';
+    linkBtn.addEventListener('click', () => {
+      const src = getSourceList().find((s) => s.id === this.activeSourceId);
+      if (src) window.open(src.homepage, '_blank');
+    });
+    topBar.append(linkBtn);
+
+    left.append(topBar);
 
     if (this.sourceLoading) {
       const loading = document.createElement('div');
       loading.className = 'bd-pp-empty';
       loading.textContent = '正在加载...';
-      list.append(loading);
+      left.append(loading);
     } else if (this.sourceError) {
       const errBox = document.createElement('div');
       errBox.className = 'bd-pp-source-error';
-
       const errMsg = document.createElement('div');
       errMsg.className = 'bd-pp-source-error-msg';
       errMsg.textContent = `加载失败: ${this.sourceError}`;
@@ -676,7 +685,6 @@ export class PromptPanel {
       retryBtn.className = 'bd-pp-action-btn';
       retryBtn.textContent = '重试刷新';
       retryBtn.addEventListener('click', () => this.fetchSource(true));
-
       const openBtn = document.createElement('button');
       openBtn.className = 'bd-pp-action-btn';
       openBtn.textContent = '打开仓库文档';
@@ -684,9 +692,8 @@ export class PromptPanel {
         const src = getSourceList().find((s) => s.id === this.activeSourceId);
         if (src) window.open(src.homepage, '_blank');
       });
-
       errBox.append(retryBtn, openBtn);
-      list.append(errBox);
+      left.append(errBox);
     } else if (this.sourcePack.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'bd-pp-source-welcome';
@@ -700,8 +707,7 @@ export class PromptPanel {
       cta.textContent = '刷新提示词仓库';
       cta.addEventListener('click', () => this.fetchSource(true));
       empty.append(heading, desc, cta);
-      if (!this.activeSourceId) empty.style.display = 'none';
-      list.append(empty);
+      left.append(empty);
     } else {
       let filtered = this.sourcePack;
       if (this.sourceSearchQuery) {
@@ -710,10 +716,6 @@ export class PromptPanel {
           p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q) || p.tags.some((t) => t.toLowerCase().includes(q)),
         );
       }
-      if (this.sourceCategoryFilter) {
-        filtered = filtered.filter((p) => p.tags.includes(this.sourceCategoryFilter!));
-      }
-
       const statBar = document.createElement('div');
       statBar.className = 'bd-pp-source-stats';
       const available = filtered.filter(
@@ -722,7 +724,7 @@ export class PromptPanel {
       statBar.textContent = `${filtered.length} 条${available > 0 ? `，${available} 条可添加` : ''}`;
       if (this.sourceRiskCount > 0) statBar.textContent += ` · 已过滤 ${this.sourceRiskCount} 条风险内容`;
       if (this.sourceFallback) statBar.textContent += ' · 离线兜底';
-      list.append(statBar);
+      left.append(statBar);
 
       const grid = document.createElement('div');
       grid.className = 'bd-pp-source-grid';
@@ -730,87 +732,12 @@ export class PromptPanel {
         const origIndex = this.sourcePack.indexOf(item);
         grid.append(this.buildSourceCard(item, origIndex));
       }
-      list.append(grid);
+      left.append(grid);
     }
 
     const detail = this.buildSourceDetail();
-    wrapper.append(sidebar, list, detail);
+    wrapper.append(left, detail);
     return wrapper;
-  }
-
-  private buildSourceToolbar(parent: HTMLElement): void {
-    if (!this.activeSourceId) return;
-
-    const toolbar = document.createElement('div');
-    toolbar.className = 'bd-pp-source-toolbar';
-
-    const name = document.createElement('span');
-    name.className = 'bd-pp-source-name';
-
-    const src = getSourceList().find((s) => s.id === this.activeSourceId);
-    name.textContent = src?.name ?? this.activeSourceId;
-    toolbar.append(name);
-
-    const search = document.createElement('input');
-    search.className = 'bd-pp-search';
-    search.type = 'search';
-    search.placeholder = '搜索...';
-    search.value = this.sourceSearchQuery;
-    search.addEventListener('input', () => {
-      this.sourceSearchQuery = search.value;
-      this.renderBody();
-    });
-    toolbar.append(search);
-
-    const categories = [...new Set(this.sourcePack.map((p) => p.tags).flat().filter(Boolean))].sort();
-    if (categories.length > 0) {
-      const catSelect = document.createElement('select');
-      catSelect.className = 'bd-pp-action-btn';
-      catSelect.style.cssText = 'padding:6px 8px;';
-      const allOpt = document.createElement('option');
-      allOpt.value = '';
-      allOpt.textContent = '全部分类';
-      catSelect.append(allOpt);
-      for (const cat of categories) {
-        const opt = document.createElement('option');
-        opt.value = cat;
-        opt.textContent = cat;
-        if (cat === this.sourceCategoryFilter) opt.selected = true;
-        catSelect.append(opt);
-      }
-      catSelect.addEventListener('change', () => {
-        this.sourceCategoryFilter = catSelect.value || null;
-        this.renderBody();
-      });
-      toolbar.append(catSelect);
-    }
-
-    const refreshBtn = document.createElement('button');
-    refreshBtn.className = 'bd-pp-action-btn';
-    refreshBtn.textContent = '刷新';
-    refreshBtn.disabled = this.sourceLoading;
-    refreshBtn.addEventListener('click', () => this.fetchSource(true));
-    toolbar.append(refreshBtn);
-
-    const linkBtn = document.createElement('button');
-    linkBtn.className = 'bd-pp-action-btn';
-    linkBtn.textContent = '↗';
-    linkBtn.title = '打开仓库文档';
-    linkBtn.addEventListener('click', () => {
-      if (src) window.open(src.homepage, '_blank');
-    });
-    toolbar.append(linkBtn);
-
-    parent.append(toolbar);
-  }
-
-  private selectSource(): void {
-    this.activeSourceId = 'better-deepseek';
-    this.sourceError = null;
-    this.sourceFallback = false;
-    this.addedSourceFingerprints.clear();
-    this.selectedSourceIndex = null;
-    this.fetchSource(false);
   }
 
   private async fetchSource(forceRefresh: boolean): Promise<void> {
