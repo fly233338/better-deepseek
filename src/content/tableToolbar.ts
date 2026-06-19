@@ -1,6 +1,6 @@
 import { t, type AppLocale } from './i18n';
 import { type ThemeMode } from './theme';
-import { extractTables, findMarkdownTables, parseTable, serializeTable, type ParsedTable, type TableFormat } from './tableClip';
+import { findMarkdownTables, serializeTable, type ParsedTable, type TableFormat } from './tableClip';
 
 interface TableWidget {
   target: HTMLElement;
@@ -106,12 +106,9 @@ export function mountTableToolbar(locale: AppLocale, theme: ThemeMode, root: Doc
       btn.setAttribute('role', 'menuitem');
       btn.addEventListener('click', (event) => {
         event.stopPropagation();
-        if (act.format) {
-          const table = parsedTable ?? (target instanceof HTMLTableElement ? parseTable(target) : undefined);
-          if (table) {
-            const content = serializeTable(table, act.format);
-            navigator.clipboard.writeText(content).catch(() => {});
-          }
+        if (act.format && parsedTable) {
+          const content = serializeTable(parsedTable, act.format);
+          navigator.clipboard.writeText(content).catch(() => {});
         }
         setMenuOpen(widget, false);
         hideLater(widget);
@@ -188,13 +185,6 @@ export function mountTableToolbar(locale: AppLocale, theme: ThemeMode, root: Doc
   }
 
   function scan(): void {
-    for (const table of extractTables(root)) {
-      if (hasWidget(table)) continue;
-      const w = createWidget(table);
-      widgets.set(table, w);
-      hosts.add(w.host);
-      (w.host as HTMLElement & { tableclipTarget?: HTMLElement }).tableclipTarget = table;
-    }
     for (const { target, table } of findMarkdownTables(root)) {
       if (hasWidget(target)) continue;
       if (target.querySelector('table')) continue;
