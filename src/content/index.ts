@@ -30,19 +30,20 @@ import {
 } from '../deepseek/adapter';
 import { PromptStore } from '../core/promptStore';
 import { PromptStorage } from '../core/promptStorage';
+import { detectLocale, observeLocaleChanges, t, type AppLocale, type MessageKey } from './i18n';
 import { PromptPanel } from './promptPanel';
 import { applyThemeClass, detectThemeMode, observeThemeChanges, type ThemeMode } from './theme';
 
 const ROOT_ID = 'better-deepseek-folders';
 const DRAG_MIME = 'application/x-better-deepseek';
 const DEFAULT_FOLDER_COLOR = '#66e2aa';
-const FOLDER_COLORS = [
-  { label: '默认', value: DEFAULT_FOLDER_COLOR },
-  { label: '浅蓝', value: '#74a8ff' },
-  { label: '薄荷绿', value: '#66e2aa' },
-  { label: '淡紫', value: '#b99cff' },
-  { label: '粉色', value: '#ff9ac2' },
-  { label: '琥珀', value: '#f4bf5f' },
+const FOLDER_COLORS: Array<{ labelKey: MessageKey; value: string }> = [
+  { labelKey: 'color.default', value: DEFAULT_FOLDER_COLOR },
+  { labelKey: 'color.lightBlue', value: '#74a8ff' },
+  { labelKey: 'color.mint', value: '#66e2aa' },
+  { labelKey: 'color.purple', value: '#b99cff' },
+  { labelKey: 'color.pink', value: '#ff9ac2' },
+  { labelKey: 'color.amber', value: '#f4bf5f' },
 ] as const;
 
 interface SelectedConversation {
@@ -66,6 +67,8 @@ class BetterDeepSeekFolders {
   private hideEnabled = true;
   private themeMode: ThemeMode = 'light';
   private stopThemeObserver: (() => void) | null = null;
+  private locale: AppLocale = 'en-US';
+  private stopLocaleObserver: (() => void) | null = null;
 
   async mount(): Promise<void> {
     this.store = new FolderStore(await this.storage.load());
@@ -74,11 +77,13 @@ class BetterDeepSeekFolders {
     void this.promptStorage.save(this.promptStore.snapshot());
     this.hideEnabled = this.store.getSettings().hideEnabled;
     this.themeMode = detectThemeMode();
+    this.locale = detectLocale();
     this.render();
     this.enhanceNativeConversationRows();
     this.refreshNativeConversationVisibility();
     this.observePageChanges();
     this.observeThemeChanges();
+    this.observeLocaleChanges();
     this.listenNativePinClick();
   }
 
@@ -109,12 +114,12 @@ class BetterDeepSeekFolders {
     const actions = document.createElement('div');
     actions.className = 'bd-folder-toolbar';
     actions.append(
-      this.iconButton('settings', '设置', () => this.openSettingsDialog()),
-      this.iconButton('plus', '新建文件夹', () => this.createFolder(null)),
+      this.iconButton('settings', this.t('icon.settings'), () => this.openSettingsDialog()),
+      this.iconButton('plus', this.t('icon.newFolder'), () => this.createFolder(null)),
     );
 
     section.append(
-      this.sectionHeaderElement('文件夹', expanded, () => {
+      this.sectionHeaderElement(this.t('folder.title'), expanded, () => {
         this.store.setSettings({ ...this.store.getSettings(), foldersExpanded: !expanded });
         this.persistAndRender();
       }, actions),
@@ -134,7 +139,7 @@ class BetterDeepSeekFolders {
     if (folders.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'bd-empty';
-      empty.textContent = '新建文件夹后，可拖入 DeepSeek 历史会话。';
+      empty.textContent = this.t('folder.empty');
       list.append(empty);
       return section;
     }
@@ -150,7 +155,7 @@ class BetterDeepSeekFolders {
     const entry = document.createElement('button');
     entry.className = 'bd-prompt-entry';
     entry.type = 'button';
-    entry.append(this.iconElement('library'), document.createTextNode('提示词库'));
+    entry.append(this.iconElement('library'), document.createTextNode(this.t('prompt.title')));
     entry.addEventListener('click', () => {
       if (!this.promptStore) return;
       this.promptPanel = new PromptPanel(
@@ -158,6 +163,7 @@ class BetterDeepSeekFolders {
         () => { this.promptPanel = null; },
         () => this.persistPromptData(),
         () => this.themeMode,
+        () => this.locale,
       );
       this.promptPanel.open();
     });
@@ -180,7 +186,7 @@ class BetterDeepSeekFolders {
   private chatLabelElement(): HTMLElement {
     const el = document.createElement('div');
     el.className = 'bd-chat-label';
-    el.textContent = '聊天';
+    el.textContent = this.t('chat.label');
     return el;
   }
 
@@ -222,7 +228,7 @@ class BetterDeepSeekFolders {
     const settings = this.store.getSettings();
     const expanded = settings.pinnedExpanded !== false;
     section.append(
-      this.sectionHeaderElement('已置顶', expanded, () => {
+      this.sectionHeaderElement(this.t('feature.pinFolders'), expanded, () => {
         this.store.setSettings({ ...this.store.getSettings(), pinnedExpanded: !expanded });
         this.persistAndRender();
       }),
@@ -256,7 +262,7 @@ class BetterDeepSeekFolders {
     title.className = 'bd-pinned-title';
     title.textContent = conversation.title;
 
-    const unpin = this.iconButton('pinOff', '取消置顶', (event) => {
+    const unpin = this.iconButton('pinOff', this.t('icon.unpin'), (event) => {
       event.stopPropagation();
       this.store.togglePinnedConversation(conversation);
       this.persistAndRender();
@@ -282,12 +288,12 @@ class BetterDeepSeekFolders {
 
     const count = document.createElement('span');
     count.className = 'bd-selection-count';
-    count.textContent = `已选 ${selected.length}`;
+    count.textContent = this.t('selection.count', { count: selected.length });
 
     const move = document.createElement('button');
     move.type = 'button';
     move.className = 'bd-selection-action';
-    move.textContent = '移动所选';
+    move.textContent = this.t('selection.move');
     move.addEventListener('click', () => {
       void this.moveSelectedConversations();
     });
@@ -296,7 +302,7 @@ class BetterDeepSeekFolders {
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'bd-selection-action';
-    remove.textContent = '移除所选';
+    remove.textContent = this.t('selection.remove');
     remove.disabled = selectedFromFolders.length === 0;
     remove.addEventListener('click', () => {
       void this.removeSelectedConversations();
@@ -305,7 +311,7 @@ class BetterDeepSeekFolders {
     const clear = document.createElement('button');
     clear.type = 'button';
     clear.className = 'bd-selection-action bd-selection-muted';
-    clear.textContent = '清空';
+    clear.textContent = this.t('action.clear');
     clear.addEventListener('click', () => {
       this.clearSelection();
       this.refreshSelectionUi();
@@ -378,6 +384,21 @@ class BetterDeepSeekFolders {
     });
   }
 
+  private observeLocaleChanges(): void {
+    this.stopLocaleObserver?.();
+    this.stopLocaleObserver = observeLocaleChanges((locale) => {
+      if (locale === this.locale) return;
+      this.locale = locale;
+      this.render();
+      this.enhanceNativeConversationRows();
+      this.promptPanel?.setLocale(locale);
+    });
+  }
+
+  private t(key: MessageKey, params?: Record<string, string | number>): string {
+    return t(this.locale, key, params);
+  }
+
   private applyThemeToOpenSurfaces(): void {
     applyThemeClass(document.getElementById(ROOT_ID), this.themeMode);
     this.promptPanel?.setTheme(this.themeMode);
@@ -404,7 +425,7 @@ class BetterDeepSeekFolders {
     row.className = 'bd-folder-row';
     row.style.setProperty('--bd-level', String(level));
     row.draggable = true;
-    row.title = '拖入会话，或双击改名';
+    row.title = this.t('folder.tooltip');
 
     row.addEventListener('dragstart', (event) => {
       const payload: DragPayload = { type: 'folder', folderId: folder.id };
@@ -414,7 +435,7 @@ class BetterDeepSeekFolders {
 
     const toggle = this.iconButton(
       folder.isExpanded ? 'chevronDown' : 'chevronRight',
-      '展开/收起',
+      this.t('icon.expandCollapse'),
       () => {
         this.store.toggleFolder(folder.id);
         this.persistAndRender();
@@ -433,17 +454,17 @@ class BetterDeepSeekFolders {
     });
 
     const actionButtons = [
-      this.iconButton(folder.pinned ? 'pinOff' : 'pin', folder.pinned ? '取消置顶' : '置顶文件夹', () => {
+      this.iconButton(folder.pinned ? 'pinOff' : 'pin', folder.pinned ? this.t('icon.unpin') : this.t('icon.pinFolder'), () => {
         this.store.togglePinned(folder.id);
         this.persistAndRender();
       }),
-      this.iconButton('palette', '设置颜色', () => this.openColorDialog(folder)),
-      this.iconButton('plus', '新建子文件夹', () => this.createFolder(folder.id)),
+      this.iconButton('palette', this.t('icon.setColor'), () => this.openColorDialog(folder)),
+      this.iconButton('plus', this.t('icon.newSubfolder'), () => this.createFolder(folder.id)),
     ];
 
     if (this.featureEnabled('folderSearch')) {
       actionButtons.push(
-        this.iconButton('search', '搜索文件夹', () => {
+        this.iconButton('search', this.t('icon.searchFolder'), () => {
           if (this.openFolderSearchIds.has(folder.id)) {
             this.openFolderSearchIds.delete(folder.id);
             this.folderSearchQueries.delete(folder.id);
@@ -456,7 +477,7 @@ class BetterDeepSeekFolders {
       );
     }
 
-    actionButtons.push(this.iconButton('x', '删除文件夹', () => this.deleteFolder(folder.id)));
+    actionButtons.push(this.iconButton('x', this.t('icon.deleteFolder'), () => this.deleteFolder(folder.id)));
 
     const actions = document.createElement('div');
     actions.className = 'bd-row-actions';
@@ -473,7 +494,7 @@ class BetterDeepSeekFolders {
       const folderSearchInput = document.createElement('input');
       folderSearchInput.className = 'bd-folder-inner-search';
       folderSearchInput.type = 'search';
-      folderSearchInput.placeholder = '搜索此文件夹';
+      folderSearchInput.placeholder = this.t('folder.searchPlaceholder');
       folderSearchInput.value = folderQuery;
       folderSearchInput.addEventListener('input', (event) => {
         if ((event as InputEvent).isComposing) return;
@@ -504,7 +525,7 @@ class BetterDeepSeekFolders {
       if (folderQuery && !this.visibleConversations(folder.id, query, folderQuery).length && this.visibleFoldersByParent(folder.id, query).length === 0) {
         const empty = document.createElement('div');
         empty.className = 'bd-folder-search-empty';
-        empty.textContent = '没有匹配的会话。';
+        empty.textContent = this.t('folder.noMatchingConversations');
         block.append(empty);
       }
     }
@@ -575,7 +596,7 @@ class BetterDeepSeekFolders {
     const select = document.createElement('input');
     select.className = 'bd-conversation-select';
     select.type = 'checkbox';
-    select.title = '选择会话';
+    select.title = this.t('icon.selectConversation');
     select.checked = this.isConversationSelected(conversation.conversationId);
     select.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -595,7 +616,7 @@ class BetterDeepSeekFolders {
 
     const pin = this.iconButton(
       this.store.isConversationPinned(conversation.conversationId) ? 'pinOff' : 'pin',
-      this.store.isConversationPinned(conversation.conversationId) ? '取消置顶' : '置顶会话',
+      this.store.isConversationPinned(conversation.conversationId) ? this.t('icon.unpin') : this.t('icon.pinConversation'),
       (event) => {
         event.stopPropagation();
         this.store.togglePinnedConversation(conversation);
@@ -604,10 +625,10 @@ class BetterDeepSeekFolders {
     );
     pin.classList.add('bd-conversation-pin');
 
-    const remove = this.iconButton('x', '从文件夹移除', async (event) => {
+    const remove = this.iconButton('x', this.t('selection.remove'), async (event) => {
       event.stopPropagation();
       const confirmed = await this.confirmDialog(
-        `从文件夹移除“${conversation.title}”？不会删除 DeepSeek 原始会话。`,
+        this.t('dialog.confirmRemoveConversation', { title: conversation.title }),
       );
       if (!confirmed) return;
       this.store.removeConversation(folderId, conversation.conversationId);
@@ -660,7 +681,7 @@ class BetterDeepSeekFolders {
           );
         }
       } catch (error) {
-        await this.alertDialog(error instanceof Error ? error.message : '绉诲姩澶辫触');
+        await this.alertDialog(error instanceof Error ? error.message : this.t('error.moveFailed'));
         return;
       }
       this.persistAndRender();
@@ -743,19 +764,22 @@ class BetterDeepSeekFolders {
   }
 
   private async createFolder(parentId: string | null): Promise<void> {
-    const name = await this.promptDialog(parentId ? '子文件夹名称' : '文件夹名称', '新文件夹');
+    const name = await this.promptDialog(
+      parentId ? this.t('dialog.subfolderName') : this.t('dialog.folderName'),
+      this.t('folder.defaultName'),
+    );
     if (name === null) return;
 
     try {
       this.store.createFolder(name, parentId);
       this.persistAndRender();
     } catch (error) {
-      await this.alertDialog(error instanceof Error ? error.message : '创建文件夹失败');
+      await this.alertDialog(error instanceof Error ? error.message : this.t('error.createFolderFailed'));
     }
   }
 
   private async renameFolder(folder: Folder): Promise<void> {
-    const name = await this.promptDialog('重命名文件夹', folder.name);
+    const name = await this.promptDialog(this.t('dialog.renameFolder'), folder.name);
     if (name === null) return;
     this.store.renameFolder(folder.id, name);
     this.persistAndRender();
@@ -763,7 +787,7 @@ class BetterDeepSeekFolders {
 
   private async deleteFolder(folderId: string): Promise<void> {
     const confirmed = await this.confirmDialog(
-      '删除该文件夹及其子文件夹？文件夹内引用会一并移除，但不会删除 DeepSeek 原始会话。',
+      this.t('dialog.confirmDeleteFolder'),
     );
     if (!confirmed) return;
     this.store.deleteFolder(folderId);
@@ -794,7 +818,7 @@ class BetterDeepSeekFolders {
     if (selectedFromFolders.length === 0) return;
 
     const confirmed = await this.confirmDialog(
-      `从 Better DeepSeek 文件夹移除 ${selectedFromFolders.length} 个所选会话？不会删除 DeepSeek 原始会话。`,
+      this.t('dialog.confirmRemoveSelected', { count: selectedFromFolders.length }),
     );
     if (!confirmed) return;
 
@@ -818,10 +842,10 @@ class BetterDeepSeekFolders {
   private async selectTargetFolder(): Promise<string | null> {
     const folders = this.flattenFolders();
     if (folders.length === 0) {
-      return this.store.createFolder('默认').id;
+      return this.store.createFolder(this.t('color.default')).id;
     }
 
-    return this.folderChoiceDialog('移动到文件夹', folders);
+    return this.folderChoiceDialog(this.t('dialog.folderChoiceTitle'), folders);
   }
 
   private flattenFolders(parentId: string | null = null, level = 0): Array<{ folder: Folder; level: number }> {
@@ -843,7 +867,7 @@ class BetterDeepSeekFolders {
 
       const title = document.createElement('div');
       title.className = 'bd-dialog-label';
-      title.textContent = `设置“${folder.name}”颜色`;
+      title.textContent = this.t('dialog.colorTitle', { name: folder.name });
 
       const grid = document.createElement('div');
       grid.className = 'bd-color-grid';
@@ -852,7 +876,7 @@ class BetterDeepSeekFolders {
         const button = document.createElement('button');
         button.className = 'bd-color-option';
         button.type = 'button';
-        button.title = color.label;
+        button.title = this.t(color.labelKey);
         button.style.setProperty('--bd-color-option', color.value);
         button.classList.toggle('bd-color-option-active', (folder.color || DEFAULT_FOLDER_COLOR) === color.value);
         button.addEventListener('click', () => {
@@ -869,7 +893,7 @@ class BetterDeepSeekFolders {
 
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'bd-dialog-btn bd-dialog-cancel';
-      cancelBtn.textContent = '取消';
+      cancelBtn.textContent = this.t('action.cancel');
       cancelBtn.addEventListener('click', () => {
         overlay.remove();
         resolve();
@@ -921,7 +945,7 @@ class BetterDeepSeekFolders {
 
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'bd-dialog-btn bd-dialog-cancel';
-      cancelBtn.textContent = '取消';
+      cancelBtn.textContent = this.t('action.cancel');
       cancelBtn.addEventListener('click', () => cleanup(null));
 
       actions.append(cancelBtn);
@@ -942,14 +966,14 @@ class BetterDeepSeekFolders {
 
       const title = document.createElement('div');
       title.className = 'bd-dialog-label';
-      title.textContent = '文件夹设置';
+      title.textContent = this.t('settings.title');
 
       const row = document.createElement('label');
       row.className = 'bd-setting-row';
 
       const copy = document.createElement('span');
       copy.className = 'bd-setting-copy';
-      copy.textContent = '收纳到文件夹后，隐藏外部历史对话';
+      copy.textContent = this.t('settings.hideNative');
 
       const input = document.createElement('input');
       input.className = 'bd-setting-checkbox';
@@ -968,14 +992,14 @@ class BetterDeepSeekFolders {
 
       const currentFeatures = this.store.getSettings().features;
       const featureOptions: Array<{ key: keyof FolderFeatureSettings; label: string }> = [
-        { key: 'pinFolders', label: '置顶文件夹' },
-        { key: 'folderColors', label: '文件夹颜色' },
-        { key: 'folderSearch', label: '文件夹搜索' },
-        { key: 'folderExport', label: '导出文件夹' },
-        { key: 'folderImport', label: '导入和备份' },
-        { key: 'conversationReorder', label: '会话拖拽排序' },
-        { key: 'folderReorder', label: '文件夹拖拽排序' },
-        { key: 'multiSelect', label: '多选批量操作' },
+        { key: 'pinFolders', label: this.t('feature.pinFolders') },
+        { key: 'folderColors', label: this.t('feature.folderColors') },
+        { key: 'folderSearch', label: this.t('feature.folderSearch') },
+        { key: 'folderExport', label: this.t('feature.folderExport') },
+        { key: 'folderImport', label: this.t('feature.folderImport') },
+        { key: 'conversationReorder', label: this.t('feature.conversationReorder') },
+        { key: 'folderReorder', label: this.t('feature.folderReorder') },
+        { key: 'multiSelect', label: this.t('feature.multiSelect') },
       ];
 
       for (const option of featureOptions) {
@@ -1003,7 +1027,7 @@ class BetterDeepSeekFolders {
       const exportButton = document.createElement('button');
       exportButton.className = 'bd-dialog-btn bd-dialog-secondary';
       exportButton.type = 'button';
-      exportButton.textContent = '导出文件夹 JSON';
+      exportButton.textContent = this.t('settings.exportFolders');
       exportButton.addEventListener('click', () => {
         this.exportFolders();
       });
@@ -1024,7 +1048,7 @@ class BetterDeepSeekFolders {
       const importButton = document.createElement('button');
       importButton.className = 'bd-dialog-btn bd-dialog-secondary';
       importButton.type = 'button';
-      importButton.textContent = '导入文件夹 JSON';
+      importButton.textContent = this.t('settings.importFolders');
       importButton.addEventListener('click', () => {
         importInput.click();
       });
@@ -1032,7 +1056,7 @@ class BetterDeepSeekFolders {
       const restoreButton = document.createElement('button');
       restoreButton.className = 'bd-dialog-btn bd-dialog-secondary';
       restoreButton.type = 'button';
-      restoreButton.textContent = '恢复导入前备份';
+      restoreButton.textContent = this.t('settings.restoreBackup');
       restoreButton.disabled = !loadImportBackup();
       restoreButton.addEventListener('click', async () => {
         await this.restoreImportBackup();
@@ -1045,11 +1069,11 @@ class BetterDeepSeekFolders {
 
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'bd-dialog-btn bd-dialog-cancel';
-      cancelBtn.textContent = '取消';
+      cancelBtn.textContent = this.t('action.cancel');
 
       const confirmBtn = document.createElement('button');
       confirmBtn.className = 'bd-dialog-btn bd-dialog-confirm';
-      confirmBtn.textContent = '保存';
+      confirmBtn.textContent = this.t('action.save');
 
       const cleanup = () => {
         overlay.remove();
@@ -1093,7 +1117,7 @@ class BetterDeepSeekFolders {
     try {
       const parsed = await readJsonFile(file);
       if (!isFolderExportPayload(parsed)) {
-        await this.alertDialog('导入失败：请选择 Better DeepSeek 导出的文件夹 JSON。');
+        await this.alertDialog(this.t('error.importFolderInvalid'));
         return;
       }
 
@@ -1105,24 +1129,27 @@ class BetterDeepSeekFolders {
       this.persistAndRender();
 
       await this.alertDialog(
-        `导入完成：新增 ${result.stats.foldersImported} 个文件夹，新增 ${result.stats.conversationsImported} 个会话。`,
+        this.t('status.importComplete', {
+          folders: result.stats.foldersImported,
+          conversations: result.stats.conversationsImported,
+        }),
       );
     } catch {
-      await this.alertDialog('导入失败：文件不是有效 JSON。');
+      await this.alertDialog(this.t('error.importInvalidJson'));
     }
   }
 
   private async restoreImportBackup(): Promise<void> {
     const backup = loadImportBackup();
     if (!backup) {
-      await this.alertDialog('没有可恢复的导入前备份。');
+      await this.alertDialog(this.t('status.restoreMissing'));
       return;
     }
 
     this.store = new FolderStore(backup);
     this.hideEnabled = this.store.getSettings().hideEnabled;
     this.persistAndRender();
-    await this.alertDialog('已恢复到上次导入前的文件夹数据。');
+    await this.alertDialog(this.t('status.restoreComplete'));
   }
 
   private promptDialog(title: string, initialValue: string): Promise<string | null> {
@@ -1148,11 +1175,11 @@ class BetterDeepSeekFolders {
 
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'bd-dialog-btn bd-dialog-cancel';
-      cancelBtn.textContent = '取消';
+      cancelBtn.textContent = this.t('action.cancel');
 
       const confirmBtn = document.createElement('button');
       confirmBtn.className = 'bd-dialog-btn bd-dialog-confirm';
-      confirmBtn.textContent = '确定';
+      confirmBtn.textContent = this.t('action.confirm');
 
       const cleanup = (result: string | null) => {
         overlay.remove();
@@ -1193,11 +1220,11 @@ class BetterDeepSeekFolders {
 
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'bd-dialog-btn bd-dialog-cancel';
-      cancelBtn.textContent = '取消';
+      cancelBtn.textContent = this.t('action.cancel');
 
       const confirmBtn = document.createElement('button');
       confirmBtn.className = 'bd-dialog-btn bd-dialog-confirm';
-      confirmBtn.textContent = '确定';
+      confirmBtn.textContent = this.t('action.confirm');
 
       const cleanup = (result: boolean) => {
         overlay.remove();
@@ -1232,7 +1259,7 @@ class BetterDeepSeekFolders {
 
       const okBtn = document.createElement('button');
       okBtn.className = 'bd-dialog-btn bd-dialog-confirm';
-      okBtn.textContent = '确定';
+      okBtn.textContent = this.t('action.confirm');
 
       okBtn.addEventListener('click', () => {
         overlay.remove();
@@ -1271,7 +1298,7 @@ class BetterDeepSeekFolders {
         if (!existingSelect) {
           select.className = 'bd-native-select';
           select.type = 'checkbox';
-          select.title = '选择会话';
+          select.title = this.t('icon.selectConversation');
           select.addEventListener('click', (event) => {
             event.stopPropagation();
           });
@@ -1327,6 +1354,7 @@ class BetterDeepSeekFolders {
         this.enhanceNativeConversationRows();
         this.refreshNativeConversationVisibility();
         this.themeMode = detectThemeMode();
+        this.locale = detectLocale();
         this.applyThemeToOpenSurfaces();
         const root = document.getElementById(ROOT_ID);
         const target = findFolderInsertionTarget();
@@ -1342,7 +1370,7 @@ class BetterDeepSeekFolders {
       if (!target) return;
       if (target.closest(`#${ROOT_ID}`)) return;
       const text = (target.textContent ?? '').trim();
-      if (!/^置顶$/i.test(text)) return;
+      if (!/^(置顶|pin)$/i.test(text)) return;
       const anchor = this.findConversationAnchorNear(target);
       if (!anchor) return;
       const conversation = conversationFromAnchor(anchor);

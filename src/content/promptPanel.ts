@@ -10,6 +10,7 @@ import {
   parseMarkdown,
   readJsonFile,
 } from '../core/promptImportExport';
+import { t, type AppLocale, type MessageKey } from './i18n';
 import { getSourceList, loadSource, refreshSource } from './promptSources';
 import { applyThemeClass, type ThemeMode } from './theme';
 
@@ -22,6 +23,7 @@ export class PromptPanel {
   private readonly onClose: PanelCloseCallback;
   private readonly onPersist: () => void;
   private readonly getTheme: () => ThemeMode;
+  private readonly getLocale: () => AppLocale;
   private container: HTMLElement | null = null;
 
   private searchQuery = '';
@@ -41,11 +43,18 @@ export class PromptPanel {
   private addedSourceFingerprints = new Set<string>();
   private sourceSearchQuery = '';
 
-  constructor(store: PromptStore, onClose: PanelCloseCallback, onPersist: () => void, getTheme: () => ThemeMode) {
+  constructor(
+    store: PromptStore,
+    onClose: PanelCloseCallback,
+    onPersist: () => void,
+    getTheme: () => ThemeMode,
+    getLocale: () => AppLocale,
+  ) {
     this.store = store;
     this.onClose = onClose;
     this.onPersist = onPersist;
     this.getTheme = getTheme;
+    this.getLocale = getLocale;
   }
 
   open(): void {
@@ -99,18 +108,39 @@ export class PromptPanel {
     applyThemeClass(this.panelEl, mode);
   }
 
+  setLocale(locale: AppLocale): void {
+    void locale;
+    if (!this.container) return;
+    const next = this.buildPanel();
+    this.container.replaceWith(next);
+    this.container = next;
+  }
+
+  private t(key: MessageKey, params?: Record<string, string | number>): string {
+    return t(this.getLocale(), key, params);
+  }
+
+  private formatDate(timestamp: number): string {
+    return new Intl.DateTimeFormat(this.getLocale()).format(new Date(timestamp));
+  }
+
+  private displaySourceName(name: string): string {
+    if (name === 'BDS 提示词仓库') return this.t('import.repoTitle');
+    return name;
+  }
+
   private buildHeader(): HTMLElement {
     const header = document.createElement('div');
     header.className = 'bd-pp-header';
 
     const title = document.createElement('span');
     title.className = 'bd-pp-title';
-    title.textContent = '提示词库';
+    title.textContent = this.t('prompt.title');
 
     const search = document.createElement('input');
     search.className = 'bd-pp-search';
     search.type = 'search';
-    search.placeholder = '搜索...';
+    search.placeholder = this.t('prompt.searchPlaceholder');
     search.value = this.searchQuery;
     search.addEventListener('input', () => {
       this.searchQuery = search.value;
@@ -121,19 +151,19 @@ export class PromptPanel {
     const newBtn = document.createElement('button');
     newBtn.className = 'bd-pp-action-btn';
     newBtn.type = 'button';
-    newBtn.textContent = '新建';
+    newBtn.textContent = this.t('prompt.newTitle');
     newBtn.addEventListener('click', () => this.startCreate());
 
     const exportBtn = document.createElement('button');
     exportBtn.className = 'bd-pp-action-btn';
     exportBtn.type = 'button';
-    exportBtn.textContent = '导出';
+    exportBtn.textContent = this.t('action.export');
     exportBtn.addEventListener('click', () => this.exportAll());
 
     const importBtn = document.createElement('button');
     importBtn.className = 'bd-pp-action-btn';
     importBtn.type = 'button';
-    importBtn.textContent = '导入';
+    importBtn.textContent = this.t('action.import');
     importBtn.addEventListener('click', () => this.showSourcePicker());
 
     const closeBtn = document.createElement('button');
@@ -164,10 +194,10 @@ export class PromptPanel {
     sidebar.className = 'bd-pp-sidebar';
 
     const filters: Array<{ id: PromptFilter; label: string }> = [
-      { id: 'all', label: '全部' },
-      { id: 'favorites', label: '收藏' },
-      { id: 'builtin', label: '内置' },
-      { id: 'user', label: '自建' },
+      { id: 'all', label: this.t('prompt.filterAll') },
+      { id: 'favorites', label: this.t('prompt.filterFavorites') },
+      { id: 'builtin', label: this.t('prompt.filterBuiltin') },
+      { id: 'user', label: this.t('prompt.filterUser') },
     ];
 
     for (const f of filters) {
@@ -215,7 +245,7 @@ export class PromptPanel {
     if (prompts.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'bd-pp-empty';
-      empty.textContent = this.searchQuery ? '没有匹配的提示词' : '点击"新建"创建第一个提示词';
+      empty.textContent = this.searchQuery ? this.t('prompt.searchEmpty') : this.t('prompt.empty');
       list.append(empty);
       return list;
     }
@@ -256,7 +286,7 @@ export class PromptPanel {
     if (prompt.source === 'builtin') {
       const badge = document.createElement('span');
       badge.className = 'bd-pp-badge';
-      badge.textContent = '内置';
+      badge.textContent = this.t('prompt.builtin');
       meta.append(badge);
     }
 
@@ -298,7 +328,7 @@ export class PromptPanel {
     if (!prompt) {
       const placeholder = document.createElement('div');
       placeholder.className = 'bd-pp-detail-placeholder';
-      placeholder.textContent = '选择左侧提示词查看详情';
+      placeholder.textContent = this.t('prompt.detailPlaceholder');
       detail.append(placeholder);
       return detail;
     }
@@ -314,12 +344,12 @@ export class PromptPanel {
     meta.className = 'bd-pp-detail-meta';
 
     const usedText = prompt.lastUsedAt
-      ? `使用 ${prompt.usageCount} 次 · 最后 ${new Date(prompt.lastUsedAt).toLocaleDateString()}`
+      ? this.t('prompt.usedLast', { count: prompt.usageCount, date: this.formatDate(prompt.lastUsedAt) })
       : prompt.usageCount > 0
-        ? `使用 ${prompt.usageCount} 次`
-        : '未使用';
+        ? this.t('prompt.used', { count: prompt.usageCount })
+        : this.t('prompt.notUsed');
 
-    meta.textContent = `${prompt.source === 'builtin' ? '内置 · ' : '自建 · '}${usedText}`;
+    meta.textContent = `${prompt.source === 'builtin' ? this.t('prompt.sourceBuiltin') : this.t('prompt.sourceUser')} · ${usedText}`;
 
     header.append(title, meta);
 
@@ -342,13 +372,13 @@ export class PromptPanel {
     const useBtn = document.createElement('button');
     useBtn.className = 'bd-pp-use-btn';
     useBtn.type = 'button';
-    useBtn.textContent = '使用';
+    useBtn.textContent = this.t('action.use');
     useBtn.addEventListener('click', () => this.usePrompt(prompt));
 
     const favBtn = document.createElement('button');
     favBtn.className = 'bd-pp-action-btn';
     favBtn.type = 'button';
-    favBtn.textContent = prompt.favorite ? '★ 已收藏' : '☆ 收藏';
+    favBtn.textContent = prompt.favorite ? this.t('prompt.favorited') : this.t('prompt.favorite');
     favBtn.addEventListener('click', () => {
       this.store.toggleFavorite(prompt.id);
       this.onPersist();
@@ -358,7 +388,7 @@ export class PromptPanel {
     const editBtn = document.createElement('button');
     editBtn.className = 'bd-pp-action-btn';
     editBtn.type = 'button';
-    editBtn.textContent = '编辑';
+    editBtn.textContent = this.t('action.edit');
     editBtn.addEventListener('click', () => {
       this.editingId = prompt.id;
       this.renderBody();
@@ -367,7 +397,7 @@ export class PromptPanel {
     const copyBtn = document.createElement('button');
     copyBtn.className = 'bd-pp-action-btn';
     copyBtn.type = 'button';
-    copyBtn.textContent = '复制';
+    copyBtn.textContent = this.t('action.copy');
     copyBtn.addEventListener('click', () => {
       this.store.duplicate(prompt.id);
       this.onPersist();
@@ -377,7 +407,7 @@ export class PromptPanel {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'bd-pp-action-btn bd-pp-danger-btn';
     deleteBtn.type = 'button';
-    deleteBtn.textContent = '删除';
+    deleteBtn.textContent = this.t('action.delete');
     deleteBtn.addEventListener('click', () => {
       this.store.delete(prompt.id);
       if (this.selectedId === prompt.id) this.selectedId = null;
@@ -397,30 +427,30 @@ export class PromptPanel {
 
     const heading = document.createElement('div');
     heading.className = 'bd-pp-editor-heading';
-    heading.textContent = prompt ? '编辑提示词' : '新建提示词';
+    heading.textContent = prompt ? this.t('prompt.editTitle') : this.t('prompt.newTitle');
 
     const titleInput = document.createElement('input');
     titleInput.className = 'bd-pp-editor-input';
     titleInput.type = 'text';
-    titleInput.placeholder = '标题';
+    titleInput.placeholder = this.t('prompt.titlePlaceholder');
     titleInput.value = prompt?.title ?? '';
 
     const descInput = document.createElement('input');
     descInput.className = 'bd-pp-editor-input';
     descInput.type = 'text';
-    descInput.placeholder = '描述（可选）';
+    descInput.placeholder = this.t('prompt.descriptionPlaceholder');
     descInput.value = prompt?.description ?? '';
 
     const contentInput = document.createElement('textarea');
     contentInput.className = 'bd-pp-editor-textarea';
-    contentInput.placeholder = '提示词内容，用 {{变量名}} 标记变量';
+    contentInput.placeholder = this.t('prompt.contentPlaceholder');
     contentInput.value = prompt?.content ?? '';
     contentInput.rows = 8;
 
     const tagsInput = document.createElement('input');
     tagsInput.className = 'bd-pp-editor-input';
     tagsInput.type = 'text';
-    tagsInput.placeholder = '标签，逗号分隔';
+    tagsInput.placeholder = this.t('prompt.tagsPlaceholder');
     tagsInput.value = prompt?.tags.join(', ') ?? '';
 
     const favLabel = document.createElement('label');
@@ -428,7 +458,7 @@ export class PromptPanel {
     const favCheck = document.createElement('input');
     favCheck.type = 'checkbox';
     favCheck.checked = prompt?.favorite ?? false;
-    favLabel.append(favCheck, document.createTextNode(' 收藏'));
+    favLabel.append(favCheck, document.createTextNode(` ${this.t('prompt.filterFavorites')}`));
 
     const actions = document.createElement('div');
     actions.className = 'bd-pp-detail-actions';
@@ -436,7 +466,7 @@ export class PromptPanel {
     const saveBtn = document.createElement('button');
     saveBtn.className = 'bd-pp-use-btn';
     saveBtn.type = 'button';
-    saveBtn.textContent = '保存';
+    saveBtn.textContent = this.t('action.save');
     saveBtn.addEventListener('click', () => {
       const title = titleInput.value.trim();
       if (!title) {
@@ -472,7 +502,7 @@ export class PromptPanel {
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'bd-pp-action-btn';
     cancelBtn.type = 'button';
-    cancelBtn.textContent = '取消';
+    cancelBtn.textContent = this.t('action.cancel');
     cancelBtn.addEventListener('click', () => {
       this.editingId = null;
       this.isNew = false;
@@ -528,7 +558,7 @@ export class PromptPanel {
 
     const label = document.createElement('div');
     label.className = 'bd-dialog-label';
-    label.textContent = `填写变量 — "${prompt.title}"`;
+    label.textContent = this.t('dialog.variablesTitle', { title: prompt.title });
 
     const inputs: HTMLInputElement[] = [];
     for (const varName of variables) {
@@ -554,12 +584,12 @@ export class PromptPanel {
 
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'bd-dialog-btn bd-dialog-cancel';
-    cancelBtn.textContent = '取消';
+    cancelBtn.textContent = this.t('action.cancel');
     cancelBtn.addEventListener('click', () => overlay.remove());
 
     const confirmBtn = document.createElement('button');
     confirmBtn.className = 'bd-dialog-btn bd-dialog-confirm';
-    confirmBtn.textContent = '填入';
+    confirmBtn.textContent = this.t('action.confirm');
     confirmBtn.addEventListener('click', () => {
       let result = prompt.content;
       for (let i = 0; i < variables.length; i++) {
@@ -589,7 +619,7 @@ export class PromptPanel {
       navigator.clipboard.writeText(text).catch(() => {
         console.warn('[BetterDeepSeek] copy fallback failed');
       });
-      void this.alertDialog('未找到输入框，已将提示词内容复制到剪贴板');
+      void this.alertDialog(this.t('error.noComposer'));
     }
 
     this.close();
@@ -613,7 +643,7 @@ export class PromptPanel {
 
       const okBtn = document.createElement('button');
       okBtn.className = 'bd-dialog-btn bd-dialog-confirm';
-      okBtn.textContent = '确定';
+      okBtn.textContent = this.t('action.confirm');
       okBtn.addEventListener('click', () => {
         overlay.remove();
         resolve();
@@ -669,20 +699,20 @@ export class PromptPanel {
     const backBtn = document.createElement('button');
     backBtn.className = 'bd-pp-action-btn';
     backBtn.type = 'button';
-    backBtn.textContent = '← 返回库';
+    backBtn.textContent = this.t('action.backToLibrary');
     backBtn.addEventListener('click', () => this.backToLibrary());
     topBar.append(backBtn);
 
     const importFileBtn = document.createElement('button');
     importFileBtn.className = 'bd-pp-action-btn';
     importFileBtn.type = 'button';
-    importFileBtn.textContent = '从文件导入';
+    importFileBtn.textContent = this.t('action.importFile');
     importFileBtn.addEventListener('click', () => this.importFile());
     topBar.append(importFileBtn);
 
     const refreshBtn = document.createElement('button');
     refreshBtn.className = 'bd-pp-action-btn';
-    refreshBtn.textContent = '刷新';
+    refreshBtn.textContent = this.t('action.refresh');
     refreshBtn.disabled = this.sourceLoading;
     refreshBtn.addEventListener('click', () => this.fetchSource(true));
     topBar.append(refreshBtn);
@@ -690,7 +720,7 @@ export class PromptPanel {
     const linkBtn = document.createElement('button');
     linkBtn.className = 'bd-pp-action-btn';
     linkBtn.textContent = '↗';
-    linkBtn.title = '打开仓库文档';
+    linkBtn.title = this.t('action.openRepo');
     linkBtn.addEventListener('click', () => {
       const src = getSourceList().find((s) => s.id === this.activeSourceId);
       if (src) window.open(src.homepage, '_blank');
@@ -702,7 +732,7 @@ export class PromptPanel {
     const search = document.createElement('input');
     search.className = 'bd-pp-search bd-pp-source-searchwide';
     search.type = 'search';
-    search.placeholder = '在官方仓库搜索';
+    search.placeholder = this.t('import.repoSearch');
     search.value = this.sourceSearchQuery;
     search.addEventListener('input', () => {
       this.sourceSearchQuery = search.value;
@@ -716,23 +746,23 @@ export class PromptPanel {
     if (this.sourceLoading) {
       const loading = document.createElement('div');
       loading.className = 'bd-pp-empty';
-      loading.textContent = '正在加载...';
+      loading.textContent = this.t('action.loading');
       left.append(loading);
     } else if (this.sourceError) {
       const errBox = document.createElement('div');
       errBox.className = 'bd-pp-source-error';
       const errMsg = document.createElement('div');
       errMsg.className = 'bd-pp-source-error-msg';
-      errMsg.textContent = `加载失败: ${this.sourceError}`;
+      errMsg.textContent = this.t('error.loadFailed', { message: this.sourceError });
       errBox.append(errMsg);
 
       const retryBtn = document.createElement('button');
       retryBtn.className = 'bd-pp-action-btn';
-      retryBtn.textContent = '重试刷新';
+      retryBtn.textContent = this.t('action.retryRefresh');
       retryBtn.addEventListener('click', () => this.fetchSource(true));
       const openBtn = document.createElement('button');
       openBtn.className = 'bd-pp-action-btn';
-      openBtn.textContent = '打开仓库文档';
+      openBtn.textContent = this.t('action.openRepo');
       openBtn.addEventListener('click', () => {
         const src = getSourceList().find((s) => s.id === this.activeSourceId);
         if (src) window.open(src.homepage, '_blank');
@@ -744,12 +774,12 @@ export class PromptPanel {
       empty.className = 'bd-pp-source-welcome';
       const heading = document.createElement('div');
       heading.className = 'bd-pp-source-welcome-title';
-      heading.textContent = 'Better DeepSeek 提示词仓库';
+      heading.textContent = this.t('import.repoTitle');
       const desc = document.createElement('div');
-      desc.textContent = '点击下方按钮从官方仓库获取最新提示词集合。';
+      desc.textContent = this.t('import.repoDescription');
       const cta = document.createElement('button');
       cta.className = 'bd-pp-use-btn';
-      cta.textContent = '刷新提示词仓库';
+      cta.textContent = this.t('action.refreshRepo');
       cta.addEventListener('click', () => this.fetchSource(true));
       empty.append(heading, desc, cta);
       left.append(empty);
@@ -766,9 +796,12 @@ export class PromptPanel {
       const available = filtered.filter(
         (item) => !this.store.hasFingerprint(item.fingerprint) && !this.addedSourceFingerprints.has(item.fingerprint),
       ).length;
-      statBar.textContent = `${filtered.length} 条${available > 0 ? `，${available} 条可添加` : ''}`;
-      if (this.sourceRiskCount > 0) statBar.textContent += ` · 已过滤 ${this.sourceRiskCount} 条风险内容`;
-      if (this.sourceFallback) statBar.textContent += ' · 离线兜底';
+      statBar.textContent = this.t('import.stats', {
+        total: filtered.length,
+        available: available > 0 ? this.t('import.statsAvailable', { count: available }) : '',
+      });
+      if (this.sourceRiskCount > 0) statBar.textContent += ` · ${this.t('import.filteredRisks', { count: this.sourceRiskCount })}`;
+      if (this.sourceFallback) statBar.textContent += ` · ${this.t('import.offlineFallback')}`;
       left.append(statBar);
 
       const grid = document.createElement('div');
@@ -802,7 +835,7 @@ export class PromptPanel {
       this.renderBody();
     } catch (err) {
       this.sourceLoading = false;
-      this.sourceError = err instanceof Error ? err.message : '未知错误';
+      this.sourceError = err instanceof Error ? err.message : this.t('import.unknownError');
       this.renderBody();
     }
   }
@@ -832,13 +865,13 @@ export class PromptPanel {
     if (stored || added) {
       const badge = document.createElement('span');
       badge.className = 'bd-pp-badge bd-pp-badge-success';
-      badge.textContent = added ? '已添加' : '✓';
+      badge.textContent = added ? this.t('import.added') : '✓';
       meta.append(badge);
     }
 
     const srcBadge = document.createElement('span');
     srcBadge.className = 'bd-pp-badge';
-    srcBadge.textContent = item.sourceName.slice(0, 10);
+    srcBadge.textContent = this.displaySourceName(item.sourceName).slice(0, 10);
     meta.append(srcBadge);
 
     header.append(title, meta);
@@ -867,7 +900,7 @@ export class PromptPanel {
     if (this.selectedSourceIndex === null || !this.sourcePack[this.selectedSourceIndex]) {
       const placeholder = document.createElement('div');
       placeholder.className = 'bd-pp-detail-placeholder';
-      placeholder.textContent = '选择左侧提示词查看详情';
+      placeholder.textContent = this.t('prompt.detailPlaceholder');
       detail.append(placeholder);
       return detail;
     }
@@ -885,7 +918,10 @@ export class PromptPanel {
 
     const meta = document.createElement('div');
     meta.className = 'bd-pp-detail-meta';
-    meta.textContent = `来源: ${item.sourceName}${stored || added ? ' · 已添加' : ''}`;
+    meta.textContent = this.t('import.sourceMeta', {
+      source: this.displaySourceName(item.sourceName),
+      status: stored || added ? this.t('import.sourceStatusAdded') : '',
+    });
 
     header.append(title, meta);
 
@@ -909,7 +945,7 @@ export class PromptPanel {
       const addBtn = document.createElement('button');
       addBtn.className = 'bd-pp-use-btn';
       addBtn.type = 'button';
-      addBtn.textContent = '添加到我的库';
+      addBtn.textContent = this.t('action.addToLibrary');
       addBtn.addEventListener('click', () => {
         this.store.addFromSource(item, false);
         this.onPersist();
@@ -921,7 +957,7 @@ export class PromptPanel {
       const favAddBtn = document.createElement('button');
       favAddBtn.className = 'bd-pp-action-btn';
       favAddBtn.type = 'button';
-      favAddBtn.textContent = '收藏并添加';
+      favAddBtn.textContent = this.t('import.favoriteAndAdd');
       favAddBtn.addEventListener('click', () => {
         this.store.addFromSource(item, true);
         this.onPersist();
@@ -933,7 +969,7 @@ export class PromptPanel {
       const doneBtn = document.createElement('button');
       doneBtn.className = 'bd-pp-action-btn';
       doneBtn.type = 'button';
-      doneBtn.textContent = added ? '已添加' : '已在库中';
+      doneBtn.textContent = added ? this.t('import.alreadyAdded') : this.t('import.alreadyInLibrary');
       doneBtn.disabled = true;
       actions.append(doneBtn);
     }
@@ -968,7 +1004,9 @@ export class PromptPanel {
         this.selectedSourceIndex = null;
         this.renderBody();
       } catch (err) {
-        void this.alertDialog(`导入失败: ${err instanceof Error ? err.message : '未知错误'}`);
+        void this.alertDialog(this.t('error.importPromptFailed', {
+          message: err instanceof Error ? err.message : this.t('import.unknownError'),
+        }));
       }
     });
 
