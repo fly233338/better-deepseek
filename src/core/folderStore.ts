@@ -19,13 +19,21 @@ const DEFAULT_FEATURES: FolderFeatureSettings = {
   folderReorder: true,
   multiSelect: false,
 };
-const DEFAULT_SETTINGS: FolderSettings = { hideEnabled: true, features: DEFAULT_FEATURES };
+const DEFAULT_SETTINGS: FolderSettings = {
+  hideEnabled: true,
+  foldersExpanded: true,
+  chatsExpanded: true,
+  pinnedExpanded: true,
+  features: DEFAULT_FEATURES,
+};
 
 export class FolderStore {
   private data: FolderData;
 
   constructor(data?: FolderData) {
-    this.data = data ? cloneData(data) : { folders: [], folderContents: {}, settings: DEFAULT_SETTINGS };
+    this.data = data
+      ? cloneData(data)
+      : { folders: [], folderContents: {}, pinnedConversations: [], settings: mergeSettings() };
   }
 
   snapshot(): FolderData {
@@ -83,6 +91,41 @@ export class FolderStore {
     const folder = this.requireFolder(folderId);
     folder.pinned = !folder.pinned;
     folder.updatedAt = Date.now();
+  }
+
+  pinnedFolders(): Folder[] {
+    return this.data.folders
+      .filter((folder) => folder.pinned)
+      .sort((a, b) => a.sortIndex - b.sortIndex || a.createdAt - b.createdAt)
+      .map((folder) => ({ ...folder }));
+  }
+
+  togglePinnedConversation(conversation: ConversationReference): void {
+    const pinned = this.data.pinnedConversations ?? [];
+    const index = pinned.findIndex((item) => item.conversationId === conversation.conversationId);
+    if (index >= 0) {
+      pinned.splice(index, 1);
+    } else {
+      const now = Date.now();
+      pinned.push({
+        ...conversation,
+        pinned: true,
+        addedAt: conversation.addedAt || now,
+        updatedAt: now,
+        sortIndex: pinned.length,
+      });
+    }
+    this.data.pinnedConversations = pinned.map((item, sortIndex) => ({ ...item, sortIndex }));
+  }
+
+  pinnedConversations(): ConversationReference[] {
+    return [...(this.data.pinnedConversations ?? [])].sort(
+      (a, b) => a.sortIndex - b.sortIndex || b.updatedAt - a.updatedAt,
+    );
+  }
+
+  isConversationPinned(conversationId: string): boolean {
+    return Boolean(this.data.pinnedConversations?.some((item) => item.conversationId === conversationId));
   }
 
   setFolderColor(folderId: FolderId, color: string | undefined): void {
@@ -338,6 +381,7 @@ function cloneData(data: FolderData): FolderData {
         conversations.map((conversation) => ({ ...conversation })),
       ]),
     ),
+    pinnedConversations: (data.pinnedConversations ?? []).map((conversation) => ({ ...conversation })),
     settings: mergeSettings(data.settings),
   };
 }

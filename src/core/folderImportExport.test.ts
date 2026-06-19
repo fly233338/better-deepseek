@@ -70,8 +70,10 @@ describe('folder import/export helpers', () => {
     expect(result.stats).toEqual({
       foldersImported: 1,
       conversationsImported: 1,
+      pinnedConversationsImported: 0,
       duplicateFoldersSkipped: 1,
       duplicateConversationsSkipped: 1,
+      duplicatePinnedConversationsSkipped: 0,
     });
     expect(result.data.folders.map((folder) => folder.id)).toEqual(['work', 'life']);
     expect(result.data.folderContents.work.map((conversation) => conversation.conversationId)).toEqual(['a', 'b']);

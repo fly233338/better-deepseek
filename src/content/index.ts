@@ -30,6 +30,7 @@ import {
 } from '../deepseek/adapter';
 
 const ROOT_ID = 'better-deepseek-folders';
+const NATIVE_CHAT_HEADER_ID = 'better-deepseek-chat-section';
 const DRAG_MIME = 'application/x-better-deepseek';
 const DEFAULT_FOLDER_COLOR = '#66e2aa';
 const FOLDER_COLORS = [
@@ -54,12 +55,14 @@ class BetterDeepSeekFolders {
   private readonly selectedConversations = new Map<string, SelectedConversation>();
   private folderSearchQueries = new Map<string, string>();
   private openFolderSearchIds = new Set<string>();
+  private viewMode: 'chat' | 'prompts' = 'chat';
   private hideEnabled = true;
 
   async mount(): Promise<void> {
     this.store = new FolderStore(await this.storage.load());
     this.hideEnabled = this.store.getSettings().hideEnabled;
     this.render();
+    this.ensureNativeChatSection();
     this.enhanceNativeConversationRows();
     this.refreshNativeConversationVisibility();
     this.observePageChanges();
@@ -74,36 +77,24 @@ class BetterDeepSeekFolders {
     root.classList.toggle('bd-feature-pin-off', !this.featureEnabled('pinFolders'));
     root.classList.toggle('bd-feature-colors-off', !this.featureEnabled('folderColors'));
 
-    const query = '';
     root.innerHTML = '';
-    root.append(this.headerElement());
+    root.append(this.promptEntryElement());
 
-    const list = document.createElement('div');
-    list.className = 'bd-folder-list';
-    root.append(list);
-
-    const folders = this.visibleFoldersByParent(null, query);
-    if (folders.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'bd-empty';
-      empty.textContent = '新建文件夹后，可拖入 DeepSeek 历史会话。';
-      list.append(empty);
+    if (this.viewMode === 'prompts') {
+      root.append(this.promptLibraryPlaceholderElement());
       return;
     }
 
-    for (const folder of folders) {
-      list.append(this.folderElement(folder, 0, query));
-    }
+    root.append(this.pinnedSectionElement());
+    root.append(this.folderSectionElement());
   }
 
-  private headerElement(): HTMLElement {
-    const header = document.createElement('div');
-    header.className = 'bd-folder-header';
+  private folderSectionElement(): HTMLElement {
+    const section = document.createElement('section');
+    section.className = 'bd-sidebar-section';
 
-    const title = document.createElement('div');
-    title.className = 'bd-folder-title';
-    title.textContent = '文件夹';
-
+    const settings = this.store.getSettings();
+    const expanded = settings.foldersExpanded !== false;
     const actions = document.createElement('div');
     actions.className = 'bd-folder-toolbar';
     actions.append(
@@ -111,10 +102,193 @@ class BetterDeepSeekFolders {
       this.iconButton('plus', '新建文件夹', () => this.createFolder(null)),
     );
 
-    header.append(title, actions);
+    section.append(
+      this.sectionHeaderElement('文件夹', expanded, () => {
+        this.store.setSettings({ ...this.store.getSettings(), foldersExpanded: !expanded });
+        this.persistAndRender();
+      }, actions),
+    );
+
     const selectionBar = this.selectionToolbarElement();
-    if (selectionBar) header.append(selectionBar);
+    if (selectionBar) section.append(selectionBar);
+
+    if (!expanded) return section;
+
+    const list = document.createElement('div');
+    list.className = 'bd-folder-list';
+    section.append(list);
+
+    const query = '';
+    const folders = this.visibleFoldersByParent(null, query);
+    if (folders.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'bd-empty';
+      empty.textContent = '新建文件夹后，可拖入 DeepSeek 历史会话。';
+      list.append(empty);
+      return section;
+    }
+
+    for (const folder of folders) {
+      list.append(this.folderElement(folder, 0, query));
+    }
+
+    return section;
+  }
+
+  private promptEntryElement(): HTMLElement {
+    const entry = document.createElement('button');
+    entry.className = 'bd-prompt-entry';
+    entry.classList.toggle('bd-prompt-entry-active', this.viewMode === 'prompts');
+    entry.type = 'button';
+    entry.append(this.iconElement('library'), document.createTextNode('提示词库'));
+    entry.addEventListener('click', () => {
+      this.viewMode = 'prompts';
+      this.render();
+      this.ensureNativeChatSection();
+      this.refreshNativeConversationVisibility();
+    });
+    return entry;
+  }
+
+  private promptLibraryPlaceholderElement(): HTMLElement {
+    const panel = document.createElement('div');
+    panel.className = 'bd-prompt-panel';
+
+    const title = document.createElement('div');
+    title.className = 'bd-prompt-title';
+    title.textContent = '提示词库';
+
+    const copy = document.createElement('div');
+    copy.className = 'bd-prompt-copy';
+    copy.textContent = '这里会作为提示词库入口，后续再接入提示词列表、分类和插入能力。';
+
+    const back = document.createElement('button');
+    back.className = 'bd-prompt-back';
+    back.type = 'button';
+    back.textContent = '返回聊天';
+    back.addEventListener('click', () => {
+      this.viewMode = 'chat';
+      this.render();
+      this.ensureNativeChatSection();
+      this.refreshNativeConversationVisibility();
+    });
+
+    panel.append(title, copy, back);
+    return panel;
+  }
+
+  private sectionHeaderElement(
+    title: string,
+    expanded: boolean,
+    onToggle: () => void,
+    actions?: HTMLElement,
+  ): HTMLElement {
+    const header = document.createElement('div');
+    header.className = 'bd-section-header';
+
+    const label = document.createElement('button');
+    label.className = 'bd-section-title';
+    label.type = 'button';
+    label.textContent = title;
+    label.addEventListener('click', onToggle);
+
+    const toggle = document.createElement('button');
+    toggle.className = 'bd-section-toggle';
+    toggle.type = 'button';
+    toggle.append(this.iconElement(expanded ? 'chevronDown' : 'chevronRight'));
+    toggle.addEventListener('click', onToggle);
+
+    header.append(label, toggle);
+    if (actions) header.append(actions);
     return header;
+  }
+
+  private pinnedSectionElement(): HTMLElement {
+    const section = document.createElement('section');
+    section.className = 'bd-sidebar-section';
+
+    const pinnedFolders = this.store.pinnedFolders();
+    const pinnedConversations = this.store.pinnedConversations();
+    const hasPinned = pinnedFolders.length > 0 || pinnedConversations.length > 0;
+    if (!hasPinned) return section;
+
+    const settings = this.store.getSettings();
+    const expanded = settings.pinnedExpanded !== false;
+    section.append(
+      this.sectionHeaderElement('已置顶', expanded, () => {
+        this.store.setSettings({ ...this.store.getSettings(), pinnedExpanded: !expanded });
+        this.persistAndRender();
+      }),
+    );
+
+    if (!expanded) return section;
+
+    const list = document.createElement('div');
+    list.className = 'bd-pinned-list';
+
+    for (const folder of pinnedFolders) {
+      list.append(this.pinnedFolderElement(folder));
+    }
+
+    for (const conversation of pinnedConversations) {
+      list.append(this.pinnedConversationElement(conversation));
+    }
+
+    section.append(list);
+    return section;
+  }
+
+  private pinnedFolderElement(folder: Folder): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'bd-pinned-row';
+    row.style.setProperty(
+      '--bd-folder-accent',
+      this.featureEnabled('folderColors') ? folder.color || DEFAULT_FOLDER_COLOR : DEFAULT_FOLDER_COLOR,
+    );
+
+    const icon = this.iconElement('folder');
+    icon.classList.add('bd-pinned-symbol');
+
+    const name = document.createElement('span');
+    name.className = 'bd-pinned-title';
+    name.textContent = folder.name;
+
+    const unpin = this.iconButton('pinOff', '取消置顶', (event) => {
+      event.stopPropagation();
+      this.store.togglePinned(folder.id);
+      this.persistAndRender();
+    });
+    unpin.classList.add('bd-pinned-action');
+
+    row.addEventListener('click', () => {
+      if (!folder.isExpanded) this.store.toggleFolder(folder.id);
+      this.persistAndRender();
+    });
+    row.append(icon, name, unpin);
+    return row;
+  }
+
+  private pinnedConversationElement(conversation: ConversationReference): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'bd-pinned-row';
+
+    const icon = this.iconElement('chat');
+    icon.classList.add('bd-pinned-symbol');
+
+    const title = document.createElement('span');
+    title.className = 'bd-pinned-title';
+    title.textContent = conversation.title;
+
+    const unpin = this.iconButton('pinOff', '取消置顶', (event) => {
+      event.stopPropagation();
+      this.store.togglePinnedConversation(conversation);
+      this.persistAndRender();
+    });
+    unpin.classList.add('bd-pinned-action');
+
+    row.addEventListener('click', () => navigateToConversation(conversation.url));
+    row.append(icon, title, unpin);
+    return row;
   }
 
   private selectionToolbarElement(): HTMLElement | null {
@@ -215,6 +389,33 @@ class BetterDeepSeekFolders {
     root.className = 'bd-folder-root';
     target.sidebar.insertBefore(root, target.before);
     return root;
+  }
+
+  private ensureNativeChatSection(): HTMLElement | null {
+    const root = document.getElementById(ROOT_ID);
+    const sidebar = root?.parentElement;
+    if (!root || !sidebar) return null;
+
+    const existing = document.getElementById(NATIVE_CHAT_HEADER_ID);
+    const header = existing ?? document.createElement('section');
+    header.id = NATIVE_CHAT_HEADER_ID;
+    header.className = 'bd-native-chat-section';
+    header.classList.toggle('bd-native-chat-section-hidden', this.viewMode === 'prompts');
+    header.innerHTML = '';
+
+    const expanded = this.store.getSettings().chatsExpanded !== false;
+    header.append(
+      this.sectionHeaderElement('聊天', expanded, () => {
+        this.store.setSettings({ ...this.store.getSettings(), chatsExpanded: !expanded });
+        this.persistAndRender();
+      }),
+    );
+
+    if (header.parentElement !== sidebar || header.previousSibling !== root) {
+      root.after(header);
+    }
+
+    return header;
   }
 
   private folderElement(folder: Folder, level: number, query: string): HTMLElement {
@@ -417,6 +618,17 @@ class BetterDeepSeekFolders {
     title.className = 'bd-conversation-title';
     title.textContent = conversation.title;
 
+    const pin = this.iconButton(
+      this.store.isConversationPinned(conversation.conversationId) ? 'pinOff' : 'pin',
+      this.store.isConversationPinned(conversation.conversationId) ? '取消置顶' : '置顶会话',
+      (event) => {
+        event.stopPropagation();
+        this.store.togglePinnedConversation(conversation);
+        this.persistAndRender();
+      },
+    );
+    pin.classList.add('bd-conversation-pin');
+
     const remove = this.iconButton('x', '从文件夹移除', async (event) => {
       event.stopPropagation();
       const confirmed = await this.confirmDialog(
@@ -429,7 +641,7 @@ class BetterDeepSeekFolders {
     remove.classList.add('bd-conversation-remove');
 
     if (this.featureEnabled('multiSelect')) row.append(select);
-    row.append(chatIcon, title, remove);
+    row.append(chatIcon, title, pin, remove);
     return row;
   }
 
@@ -873,7 +1085,7 @@ class BetterDeepSeekFolders {
           features[key] = featureInput.checked;
         }
         this.hideEnabled = input.checked;
-        this.store.setSettings({ hideEnabled: this.hideEnabled, features });
+        this.store.setSettings({ ...this.store.getSettings(), hideEnabled: this.hideEnabled, features });
         if (!features.multiSelect) this.clearSelection();
         if (!features.folderSearch) this.folderSearchQueries.clear();
         this.persistAndRender();
@@ -1094,17 +1306,34 @@ class BetterDeepSeekFolders {
         existingSelect?.remove();
       }
 
+      let pin = host.querySelector<HTMLButtonElement>('.bd-native-pin-button');
+      if (!pin) {
+        pin = this.iconButton('pin', '置顶会话', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          this.store.togglePinnedConversation(conversation);
+          this.persistAndRender();
+        });
+        pin.classList.add('bd-native-pin-button');
+        host.append(pin);
+      }
+      const isPinned = this.store.isConversationPinned(conversation.conversationId);
+      pin.title = isPinned ? '取消置顶会话' : '置顶会话';
+      pin.replaceChildren(this.iconElement(isPinned ? 'pinOff' : 'pin'));
+
     }
   }
 
   private refreshNativeConversationVisibility(): void {
     const hiddenIds = this.store.conversationIdsInFolders();
+    const chatsCollapsed = this.viewMode === 'prompts' || this.store.getSettings().chatsExpanded === false;
 
     for (const element of document.querySelectorAll<HTMLElement>('[data-bd-native-hidden="true"]')) {
       const anchor = element.querySelector<HTMLAnchorElement>('a[href*="/chat/s/"]');
       const id = anchor ? extractConversationId(anchor.href) : null;
       const shouldHide = this.hideEnabled && Boolean(id && hiddenIds.has(id));
       element.classList.toggle('bd-native-hidden', shouldHide);
+      element.classList.toggle('bd-native-chat-collapsed', chatsCollapsed);
       if (!shouldHide) delete element.dataset.bdNativeHidden;
     }
 
@@ -1117,6 +1346,7 @@ class BetterDeepSeekFolders {
       const row = findNativeConversationContainer(anchor);
       const shouldHide = this.hideEnabled && hiddenIds.has(id);
       row.classList.toggle('bd-native-hidden', shouldHide);
+      row.classList.toggle('bd-native-chat-collapsed', chatsCollapsed);
       if (shouldHide) row.dataset.bdNativeHidden = 'true';
       else delete row.dataset.bdNativeHidden;
     }
@@ -1125,6 +1355,7 @@ class BetterDeepSeekFolders {
   private observePageChanges(): void {
     this.observer?.disconnect();
     this.observer = new MutationObserver(() => {
+      this.ensureNativeChatSection();
       this.enhanceNativeConversationRows();
       this.refreshNativeConversationVisibility();
       const root = document.getElementById(ROOT_ID);
@@ -1136,6 +1367,7 @@ class BetterDeepSeekFolders {
 
   private persistAndRender(): void {
     this.render();
+    this.ensureNativeChatSection();
     this.enhanceNativeConversationRows();
     this.refreshNativeConversationVisibility();
     if (this.saveTimer) window.clearTimeout(this.saveTimer);
@@ -1174,6 +1406,7 @@ type IconName =
   | 'chevronDown'
   | 'chevronRight'
   | 'folder'
+  | 'library'
   | 'palette'
   | 'pin'
   | 'pinOff'
@@ -1190,6 +1423,7 @@ const ICONS: Record<IconName, string> = {
   chevronDown: `<svg ${baseIconAttrs}><path d="m6 9 6 6 6-6"/></svg>`,
   chevronRight: `<svg ${baseIconAttrs}><path d="m9 6 6 6-6 6"/></svg>`,
   folder: `<svg ${baseIconAttrs}><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`,
+  library: `<svg ${baseIconAttrs}><path d="M4 19.5V5a2 2 0 0 1 2-2h11"/><path d="M8 7h11v14H8a4 4 0 0 1 0-8h11"/><path d="M8 7v6"/></svg>`,
   palette: `<svg ${baseIconAttrs}><path d="M12 22a10 10 0 1 1 10-10 3 3 0 0 1-3 3h-1.5a2 2 0 0 0-1.7 3l.2.3a2.5 2.5 0 0 1-2.1 3.7z"/><circle cx="7.5" cy="10.5" r=".5"/><circle cx="10.5" cy="7.5" r=".5"/><circle cx="14.5" cy="7.5" r=".5"/><circle cx="16.5" cy="11.5" r=".5"/></svg>`,
   pin: `<svg ${baseIconAttrs}><path d="M12 17v5"/><path d="M5 17h14"/><path d="M15 3.6 14 10l3 3v4H7v-4l3-3-.9-6.4A1 1 0 0 1 10.1 2h3.8a1 1 0 0 1 1.1 1.6z"/></svg>`,
   pinOff: `<svg ${baseIconAttrs}><path d="m3 3 18 18"/><path d="M12 17v5"/><path d="M5 17h12"/><path d="M10 4 9.5 7.5"/><path d="M14.5 10.5 17 13v4H7v-4l2-2"/><path d="M14 2a1 1 0 0 1 1 1.2L14 10"/></svg>`,

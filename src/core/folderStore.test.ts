@@ -87,6 +87,7 @@ describe('FolderStore', () => {
     expect(store.snapshot()).toEqual({
       folders: [],
       folderContents: {},
+      pinnedConversations: [],
       settings: expect.objectContaining({ hideEnabled: true }),
     });
   });
@@ -118,6 +119,22 @@ describe('FolderStore', () => {
     store.addConversation(second.id, conversation('def'));
 
     expect(Array.from(store.conversationIdsInFolders()).sort()).toEqual(['abc', 'def']);
+  });
+
+  it('toggles pinned conversations independently from folders', () => {
+    const store = new FolderStore();
+
+    store.togglePinnedConversation(conversation('abc', 'Pinned chat'));
+
+    expect(store.isConversationPinned('abc')).toBe(true);
+    expect(store.pinnedConversations()).toMatchObject([
+      { conversationId: 'abc', title: 'Pinned chat', pinned: true },
+    ]);
+
+    store.togglePinnedConversation(conversation('abc'));
+
+    expect(store.isConversationPinned('abc')).toBe(false);
+    expect(store.pinnedConversations()).toEqual([]);
   });
 
   it('persists folder settings in snapshots', () => {

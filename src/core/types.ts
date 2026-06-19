@@ -17,6 +17,7 @@ export interface ConversationReference {
   conversationId: ConversationId;
   title: string;
   url: string;
+  pinned?: boolean;
   addedAt: number;
   updatedAt: number;
   sortIndex: number;
@@ -35,12 +36,16 @@ export interface FolderFeatureSettings {
 
 export interface FolderSettings {
   hideEnabled: boolean;
+  foldersExpanded?: boolean;
+  chatsExpanded?: boolean;
+  pinnedExpanded?: boolean;
   features?: FolderFeatureSettings;
 }
 
 export interface FolderData {
   folders: Folder[];
   folderContents: Record<FolderId, ConversationReference[]>;
+  pinnedConversations?: ConversationReference[];
   settings?: FolderSettings;
 }
 
