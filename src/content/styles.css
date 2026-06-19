@@ -196,19 +196,23 @@
 
 .bd-pinned-list {
   display: grid;
-  gap: 2px;
+  gap: 1px;
+}
+
+.bd-pinned-list .bd-folder-row {
+  min-height: 30px;
 }
 
 .bd-pinned-row {
   display: flex;
   align-items: center;
-  min-height: 34px;
+  min-height: 30px;
   gap: 8px;
   border-radius: 10px;
   padding: 0 8px;
   color: #111827;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 650;
 }
 

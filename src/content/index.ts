@@ -431,6 +431,7 @@ class BetterDeepSeekFolders {
             this.openFolderSearchIds.delete(folder.id);
             this.folderSearchQueries.delete(folder.id);
           } else {
+            if (!folder.isExpanded) this.store.toggleFolder(folder.id);
             this.openFolderSearchIds.add(folder.id);
           }
           this.persistAndRender();
