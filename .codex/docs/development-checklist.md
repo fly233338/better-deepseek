@@ -40,3 +40,34 @@
   - Set DeepSeek/html language to English and verify the same surfaces show English.
   - Set DeepSeek/html language to a non-Chinese/non-English locale and verify Better DeepSeek falls back to English.
   - Confirm user-owned folder names, chat titles, imported prompts, and existing prompt content are not auto-translated.
+
+## Content Entrypoint Split
+
+- Status: Implemented.
+- Summary: The content script entrypoint is now a small bootstrap that loads extension settings and handles popup messages. The large content app moved to `src/content/app.ts`, while sidebar constants and icon factories moved to `src/content/folderSidebar.ts`.
+- Key files:
+  - `src/content/index.ts`
+  - `src/content/app.ts`
+  - `src/content/folderSidebar.ts`
+  - `src/core/runtimeMessages.ts`
+- Validation:
+  - `npm run typecheck`
+  - `npm test`
+  - `npm run build`
+
+## Extension Action Popup
+
+- Status: Implemented.
+- Summary: The MV3 manifest now exposes a minimal popup escape hatch. Users can enable or disable Better DeepSeek, open or close the folder section, open or close the prompt library, export and import folder backups, reset UI state, and copy diagnostics.
+- Key files:
+  - `public/manifest.json`
+  - `src/popup.html`
+  - `src/popup/index.ts`
+  - `src/popup/index.css`
+  - `src/core/extensionSettings.ts`
+  - `src/core/runtimeMessages.ts`
+  - `vite.config.ts`
+- Validation:
+  - `npm run typecheck`
+  - `npm test`
+  - `npm run build`

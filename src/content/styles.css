@@ -37,6 +37,11 @@
   --bd-tag-bg: #eff3fa;
   --bd-tag-text: #607498;
   --bd-folder-accent-default: #66e2aa;
+  --bd-folder-color-light-blue: #74a8ff;
+  --bd-folder-color-mint: #66e2aa;
+  --bd-folder-color-purple: #b99cff;
+  --bd-folder-color-pink: #ff9ac2;
+  --bd-folder-color-amber: #f4bf5f;
   --bd-conversation-bg: linear-gradient(90deg, color-mix(in srgb, var(--bd-folder-accent, var(--bd-folder-accent-default)) 12%, #eef4ff) 0, #f7fbff 46%, #ffffff 100%);
   --bd-conversation-current-bg: linear-gradient(90deg, color-mix(in srgb, var(--bd-folder-accent, var(--bd-folder-accent-default)) 20%, #dce8ff) 0, #eef8ff 48%, #ffffff 100%);
 }
@@ -80,6 +85,11 @@
   --bd-tag-bg: rgba(122, 162, 255, 0.14);
   --bd-tag-text: #b9cbff;
   --bd-folder-accent-default: #5ee0a5;
+  --bd-folder-color-light-blue: #7aa2ff;
+  --bd-folder-color-mint: #5ee0a5;
+  --bd-folder-color-purple: #c4b5fd;
+  --bd-folder-color-pink: #f0abfc;
+  --bd-folder-color-amber: #ffd166;
   --bd-conversation-bg: linear-gradient(90deg, color-mix(in srgb, var(--bd-folder-accent, var(--bd-folder-accent-default)) 20%, #111827) 0, #111827 54%, #0f172a 100%);
   --bd-conversation-current-bg: linear-gradient(90deg, color-mix(in srgb, var(--bd-folder-accent, var(--bd-folder-accent-default)) 30%, #111827) 0, rgba(122, 162, 255, 0.16) 54%, #111827 100%);
 }

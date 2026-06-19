@@ -4,11 +4,14 @@
   "description": "__MSG_extensionDescription__",
   "version": "0.1.0",
   "default_locale": "en",
-  "permissions": ["storage"],
+  "permissions": ["storage", "activeTab"],
   "host_permissions": [
     "https://chat.deepseek.com/*",
     "https://www.deepseek.com/*"
   ],
+  "action": {
+    "default_popup": "popup.html"
+  },
   "content_scripts": [
     {
       "matches": ["https://chat.deepseek.com/*"],
