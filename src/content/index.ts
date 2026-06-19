@@ -30,7 +30,6 @@ import {
 } from '../deepseek/adapter';
 
 const ROOT_ID = 'better-deepseek-folders';
-const NATIVE_CHAT_HEADER_ID = 'better-deepseek-chat-section';
 const DRAG_MIME = 'application/x-better-deepseek';
 const DEFAULT_FOLDER_COLOR = '#66e2aa';
 const FOLDER_COLORS = [
@@ -51,6 +50,7 @@ class BetterDeepSeekFolders {
   private readonly storage = new ExtensionFolderStorage();
   private store = new FolderStore();
   private observer: MutationObserver | null = null;
+  private observerTimer: number | null = null;
   private saveTimer: number | null = null;
   private readonly selectedConversations = new Map<string, SelectedConversation>();
   private folderSearchQueries = new Map<string, string>();
@@ -62,10 +62,10 @@ class BetterDeepSeekFolders {
     this.store = new FolderStore(await this.storage.load());
     this.hideEnabled = this.store.getSettings().hideEnabled;
     this.render();
-    this.ensureNativeChatSection();
     this.enhanceNativeConversationRows();
     this.refreshNativeConversationVisibility();
     this.observePageChanges();
+    this.listenNativePinClick();
   }
 
   private render(): void {
@@ -85,8 +85,10 @@ class BetterDeepSeekFolders {
       return;
     }
 
+    root.append(this.separatorElement());
     root.append(this.pinnedSectionElement());
     root.append(this.folderSectionElement());
+    root.append(this.chatLabelElement());
   }
 
   private folderSectionElement(): HTMLElement {
@@ -119,7 +121,7 @@ class BetterDeepSeekFolders {
     section.append(list);
 
     const query = '';
-    const folders = this.visibleFoldersByParent(null, query);
+    const folders = this.visibleFoldersByParent(null, query, true);
     if (folders.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'bd-empty';
@@ -144,7 +146,6 @@ class BetterDeepSeekFolders {
     entry.addEventListener('click', () => {
       this.viewMode = 'prompts';
       this.render();
-      this.ensureNativeChatSection();
       this.refreshNativeConversationVisibility();
     });
     return entry;
@@ -169,12 +170,24 @@ class BetterDeepSeekFolders {
     back.addEventListener('click', () => {
       this.viewMode = 'chat';
       this.render();
-      this.ensureNativeChatSection();
       this.refreshNativeConversationVisibility();
     });
 
     panel.append(title, copy, back);
     return panel;
+  }
+
+  private separatorElement(): HTMLElement {
+    const el = document.createElement('hr');
+    el.className = 'bd-separator';
+    return el;
+  }
+
+  private chatLabelElement(): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'bd-chat-label';
+    el.textContent = '聊天';
+    return el;
   }
 
   private sectionHeaderElement(
@@ -227,7 +240,7 @@ class BetterDeepSeekFolders {
     list.className = 'bd-pinned-list';
 
     for (const folder of pinnedFolders) {
-      list.append(this.pinnedFolderElement(folder));
+      list.append(this.folderElement(folder, 0, ''));
     }
 
     for (const conversation of pinnedConversations) {
@@ -236,36 +249,6 @@ class BetterDeepSeekFolders {
 
     section.append(list);
     return section;
-  }
-
-  private pinnedFolderElement(folder: Folder): HTMLElement {
-    const row = document.createElement('div');
-    row.className = 'bd-pinned-row';
-    row.style.setProperty(
-      '--bd-folder-accent',
-      this.featureEnabled('folderColors') ? folder.color || DEFAULT_FOLDER_COLOR : DEFAULT_FOLDER_COLOR,
-    );
-
-    const icon = this.iconElement('folder');
-    icon.classList.add('bd-pinned-symbol');
-
-    const name = document.createElement('span');
-    name.className = 'bd-pinned-title';
-    name.textContent = folder.name;
-
-    const unpin = this.iconButton('pinOff', '取消置顶', (event) => {
-      event.stopPropagation();
-      this.store.togglePinned(folder.id);
-      this.persistAndRender();
-    });
-    unpin.classList.add('bd-pinned-action');
-
-    row.addEventListener('click', () => {
-      if (!folder.isExpanded) this.store.toggleFolder(folder.id);
-      this.persistAndRender();
-    });
-    row.append(icon, name, unpin);
-    return row;
   }
 
   private pinnedConversationElement(conversation: ConversationReference): HTMLElement {
@@ -391,33 +374,6 @@ class BetterDeepSeekFolders {
     return root;
   }
 
-  private ensureNativeChatSection(): HTMLElement | null {
-    const root = document.getElementById(ROOT_ID);
-    const sidebar = root?.parentElement;
-    if (!root || !sidebar) return null;
-
-    const existing = document.getElementById(NATIVE_CHAT_HEADER_ID);
-    const header = existing ?? document.createElement('section');
-    header.id = NATIVE_CHAT_HEADER_ID;
-    header.className = 'bd-native-chat-section';
-    header.classList.toggle('bd-native-chat-section-hidden', this.viewMode === 'prompts');
-    header.innerHTML = '';
-
-    const expanded = this.store.getSettings().chatsExpanded !== false;
-    header.append(
-      this.sectionHeaderElement('聊天', expanded, () => {
-        this.store.setSettings({ ...this.store.getSettings(), chatsExpanded: !expanded });
-        this.persistAndRender();
-      }),
-    );
-
-    if (header.parentElement !== sidebar || header.previousSibling !== root) {
-      root.after(header);
-    }
-
-    return header;
-  }
-
   private folderElement(folder: Folder, level: number, query: string): HTMLElement {
     const block = document.createElement('div');
     block.className = 'bd-folder-block';
@@ -538,11 +494,12 @@ class BetterDeepSeekFolders {
     return block;
   }
 
-  private visibleFoldersByParent(parentId: string | null, query: string): Folder[] {
+  private visibleFoldersByParent(parentId: string | null, query: string, excludePinned = false): Folder[] {
     const folders = this.store.foldersByParent(parentId);
-    if (!query) return folders;
+    const filtered = excludePinned ? folders.filter((folder) => !folder.pinned) : folders;
+    if (!query) return filtered;
 
-    return folders.filter((folder) => this.folderMatchesSearch(folder, query));
+    return filtered.filter((folder) => this.folderMatchesSearch(folder, query));
   }
 
   private visibleConversations(folderId: string, query: string, folderQuery = ''): ConversationReference[] {
@@ -1306,27 +1263,15 @@ class BetterDeepSeekFolders {
         existingSelect?.remove();
       }
 
-      let pin = host.querySelector<HTMLButtonElement>('.bd-native-pin-button');
-      if (!pin) {
-        pin = this.iconButton('pin', '置顶会话', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          this.store.togglePinnedConversation(conversation);
-          this.persistAndRender();
-        });
-        pin.classList.add('bd-native-pin-button');
-        host.append(pin);
-      }
-      const isPinned = this.store.isConversationPinned(conversation.conversationId);
-      pin.title = isPinned ? '取消置顶会话' : '置顶会话';
-      pin.replaceChildren(this.iconElement(isPinned ? 'pinOff' : 'pin'));
-
     }
   }
 
   private refreshNativeConversationVisibility(): void {
     const hiddenIds = this.store.conversationIdsInFolders();
-    const chatsCollapsed = this.viewMode === 'prompts' || this.store.getSettings().chatsExpanded === false;
+    for (const pinned of this.store.pinnedConversations()) {
+      hiddenIds.add(pinned.conversationId);
+    }
+    const chatsCollapsed = this.viewMode === 'prompts';
 
     for (const element of document.querySelectorAll<HTMLElement>('[data-bd-native-hidden="true"]')) {
       const anchor = element.querySelector<HTMLAnchorElement>('a[href*="/chat/s/"]');
@@ -1355,19 +1300,50 @@ class BetterDeepSeekFolders {
   private observePageChanges(): void {
     this.observer?.disconnect();
     this.observer = new MutationObserver(() => {
-      this.ensureNativeChatSection();
-      this.enhanceNativeConversationRows();
-      this.refreshNativeConversationVisibility();
-      const root = document.getElementById(ROOT_ID);
-      const target = findFolderInsertionTarget();
-      if (!root || (target && root.parentElement !== target.sidebar)) this.render();
+      if (this.observerTimer) return;
+      this.observerTimer = window.setTimeout(() => {
+        this.observerTimer = null;
+        this.enhanceNativeConversationRows();
+        this.refreshNativeConversationVisibility();
+        const root = document.getElementById(ROOT_ID);
+        const target = findFolderInsertionTarget();
+        if (!root || (target && root.parentElement !== target.sidebar)) this.render();
+      }, 60);
     });
     this.observer.observe(document.body, { childList: true, subtree: true });
   }
 
+  private listenNativePinClick(): void {
+    document.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+      if (!target) return;
+      if (target.closest(`#${ROOT_ID}`)) return;
+      const text = (target.textContent ?? '').trim();
+      if (!/^置顶$/i.test(text)) return;
+      const anchor = this.findConversationAnchorNear(target);
+      if (!anchor) return;
+      const conversation = conversationFromAnchor(anchor);
+      if (!conversation) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      this.store.togglePinnedConversation(conversation);
+      this.persistAndRender();
+    }, true);
+  }
+
+  private findConversationAnchorNear(el: HTMLElement): HTMLAnchorElement | null {
+    let current: HTMLElement | null = el;
+    for (let i = 0; i < 10 && current; i++) {
+      const anchor = current.querySelector<HTMLAnchorElement>('a[href*="/chat/s/"]');
+      if (anchor) return anchor;
+      current = current.parentElement;
+    }
+    return null;
+  }
+
   private persistAndRender(): void {
     this.render();
-    this.ensureNativeChatSection();
     this.enhanceNativeConversationRows();
     this.refreshNativeConversationVisibility();
     if (this.saveTimer) window.clearTimeout(this.saveTimer);
@@ -1389,6 +1365,8 @@ class BetterDeepSeekFolders {
     button.title = title;
     button.append(this.iconElement(icon));
     button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       void onClick(event);
     });
     return button;

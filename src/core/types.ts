@@ -37,7 +37,6 @@ export interface FolderFeatureSettings {
 export interface FolderSettings {
   hideEnabled: boolean;
   foldersExpanded?: boolean;
-  chatsExpanded?: boolean;
   pinnedExpanded?: boolean;
   features?: FolderFeatureSettings;
 }

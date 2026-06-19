@@ -22,7 +22,6 @@ const DEFAULT_FEATURES: FolderFeatureSettings = {
 const DEFAULT_SETTINGS: FolderSettings = {
   hideEnabled: true,
   foldersExpanded: true,
-  chatsExpanded: true,
   pinnedExpanded: true,
   features: DEFAULT_FEATURES,
 };
