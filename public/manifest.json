@@ -7,8 +7,7 @@
   "permissions": ["storage"],
   "host_permissions": [
     "https://chat.deepseek.com/*",
-    "https://www.deepseek.com/*",
-    "https://raw.githubusercontent.com/*"
+    "https://www.deepseek.com/*"
   ],
   "content_scripts": [
     {
