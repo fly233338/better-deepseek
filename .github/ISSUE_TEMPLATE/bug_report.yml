@@ -1,0 +1,114 @@
+name: Bug report / 缺陷反馈
+description: Report a reproducible Better DeepSeek bug or regression / 反馈 Better DeepSeek 中可复现的问题或回归
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Better DeepSeek.
+        Please include enough detail for us to reproduce the issue on DeepSeek Web.
+
+        感谢你帮助改进 Better DeepSeek。
+        请提供足够的信息，方便我们在 DeepSeek 网页中复现问题。
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary / 问题概述
+      description: What went wrong? / 发生了什么问题？
+      placeholder: |
+        Briefly describe the bug.
+
+        请简要描述这个问题。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 复现步骤
+      description: Share the exact steps we should follow. / 请提供可复现问题的具体步骤。
+      placeholder: |
+        1. Open https://chat.deepseek.com/
+        2. Click ...
+        3. See ...
+
+        1. 打开 https://chat.deepseek.com/
+        2. 点击 ...
+        3. 看到 ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / 期望行为
+      description: What did you expect to happen? / 你期望发生什么？
+      placeholder: |
+        Describe the behavior you expected.
+
+        请描述你期望看到的正确行为。
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior / 实际行为
+      description: What actually happened? Screenshots or recordings are helpful for UI bugs. / 实际发生了什么？界面问题建议附截图或录屏。
+      placeholder: |
+        Describe the actual result and paste screenshots if helpful.
+
+        请描述实际结果；如果有帮助，可以粘贴截图。
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Better DeepSeek version / Better DeepSeek 版本
+      placeholder: e.g. v0.1.0 or commit hash / 例如 v0.1.0 或 commit hash
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser / 浏览器
+      placeholder: e.g. Chrome 126, Edge 126 / 例如 Chrome 126、Edge 126
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system / 操作系统
+      placeholder: e.g. Windows 11, macOS 15, Ubuntu 24.04 / 例如 Windows 11、macOS 15、Ubuntu 24.04
+    validations:
+      required: true
+  - type: dropdown
+    id: deepseek_theme
+    attributes:
+      label: DeepSeek theme / DeepSeek 主题
+      options:
+        - Light / 浅色
+        - Dark / 深色
+        - System or unknown / 跟随系统或不确定
+  - type: dropdown
+    id: locale
+    attributes:
+      label: Language / 语言
+      options:
+        - zh-CN
+        - en-US
+        - Other or unknown / 其他或不确定
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics / 诊断信息
+      description: Paste diagnostics copied from the Better DeepSeek popup if available. Remove sensitive information first. / 如可用，请粘贴从 Better DeepSeek popup 复制的诊断信息。请先移除敏感信息。
+      render: shell
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist / 检查清单
+      options:
+        - label: I searched existing issues before opening this report. / 我已经搜索过现有 issue。
+          required: true
+        - label: I removed sensitive information from screenshots and diagnostics. / 我已经从截图和诊断信息中移除敏感内容。
+          required: true

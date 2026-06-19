@@ -1,0 +1,71 @@
+name: Feature request / 功能建议
+description: Suggest an improvement for Better DeepSeek / 建议 Better DeepSeek 的改进方向
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing an idea.
+        Useful requests usually start with the workflow or pain point, then describe the desired behavior.
+
+        感谢分享想法。
+        好的建议通常先说明使用场景或痛点，再描述期望的行为。
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity / 问题或机会
+      description: What DeepSeek workflow would this improve? / 这个建议希望改善哪类 DeepSeek 使用流程？
+      placeholder: |
+        Tell us what is hard, missing, repetitive, or fragile today.
+
+        请说明当前哪里不好用、缺少什么、重复劳动在哪里，或哪里容易出问题。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution / 建议方案
+      description: What would you like Better DeepSeek to do? / 你希望 Better DeepSeek 如何改进？
+      placeholder: |
+        Describe the ideal behavior, UI, setting, or workflow.
+
+        请描述你理想中的行为、界面、设置项或工作流。
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered / 已考虑的替代方案
+      placeholder: |
+        Share any workaround, browser extension, script, or UI idea you considered.
+
+        可以分享你考虑过的临时方案、其他扩展、脚本或界面想法。
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / 功能区域
+      options:
+        - Folder management / 文件夹管理
+        - Prompt library / 提示词库
+        - Quote reply / 引用回复
+        - Table tools / 表格工具
+        - Popup or settings / Popup 或设置
+        - Import/export or backup / 导入导出或备份
+        - Other / 其他
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context / 补充信息
+      placeholder: |
+        Add screenshots, references, examples, or related issues if helpful.
+
+        可以补充截图、参考资料、示例或相关 issue。
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist / 检查清单
+      options:
+        - label: I searched existing issues before opening this request. / 我已经搜索过现有 issue。
+          required: true
