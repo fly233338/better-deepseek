@@ -12,7 +12,7 @@ interface SourceMeta {
 const SOURCE: SourceMeta = {
   id: 'better-deepseek',
   name: 'Better DeepSeek 提示词仓库',
-  dataUrl: 'https://raw.githubusercontent.com/fly233338/better-deepseek/main/docs/prompts/index.json',
+  dataUrl: 'https://raw.githubusercontent.com/fly233338/better-deepseek/main/data/prompts/index.json',
   homepage: 'https://github.com/fly233338/better-deepseek/tree/main/docs/prompts',
   description: 'Better DeepSeek 官方维护的提示词集合',
 };

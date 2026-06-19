@@ -598,7 +598,7 @@ export class PromptPanel {
     this.sourcePack = [];
     this.sourceRiskCount = 0;
     this.selectedSourceIndex = null;
-    this.activeSourceId = null;
+    this.activeSourceId = 'better-deepseek';
     this.sourceLoading = false;
     this.sourceError = null;
     this.sourceFallback = false;
@@ -688,17 +688,20 @@ export class PromptPanel {
       errBox.append(retryBtn, openBtn);
       list.append(errBox);
     } else if (this.sourcePack.length === 0) {
-      if (this.activeSourceId) {
-        const empty = document.createElement('div');
-        empty.className = 'bd-pp-empty';
-        empty.textContent = '点击上方「刷新」按钮获取最新提示词';
-        list.append(empty);
-      } else {
-        const empty = document.createElement('div');
-        empty.className = 'bd-pp-empty';
-        empty.textContent = '选择一个来源开始浏览';
-        list.append(empty);
-      }
+      const empty = document.createElement('div');
+      empty.className = 'bd-pp-source-welcome';
+      const heading = document.createElement('div');
+      heading.className = 'bd-pp-source-welcome-title';
+      heading.textContent = 'Better DeepSeek 提示词仓库';
+      const desc = document.createElement('div');
+      desc.textContent = '点击下方按钮从官方仓库获取最新提示词集合。';
+      const cta = document.createElement('button');
+      cta.className = 'bd-pp-use-btn';
+      cta.textContent = '刷新提示词仓库';
+      cta.addEventListener('click', () => this.fetchSource(true));
+      empty.append(heading, desc, cta);
+      if (!this.activeSourceId) empty.style.display = 'none';
+      list.append(empty);
     } else {
       let filtered = this.sourcePack;
       if (this.sourceSearchQuery) {
