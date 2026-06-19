@@ -32,6 +32,7 @@ import { PromptStore } from '../core/promptStore';
 import { PromptStorage } from '../core/promptStorage';
 import { detectLocale, observeLocaleChanges, t, type AppLocale, type MessageKey } from './i18n';
 import { PromptPanel } from './promptPanel';
+import { mountQuoteReply, updateQuoteReplyLocale, updateQuoteReplyTheme } from './quoteReply';
 import { applyThemeClass, detectThemeMode, observeThemeChanges, type ThemeMode } from './theme';
 
 const ROOT_ID = 'better-deepseek-folders';
@@ -82,6 +83,7 @@ class BetterDeepSeekFolders {
     this.enhanceNativeConversationRows();
     this.refreshNativeConversationVisibility();
     this.observePageChanges();
+    mountQuoteReply(this.locale, this.themeMode);
     this.observeThemeChanges();
     this.observeLocaleChanges();
     this.listenNativePinClick();
@@ -381,6 +383,7 @@ class BetterDeepSeekFolders {
     this.stopThemeObserver = observeThemeChanges((mode) => {
       this.themeMode = mode;
       this.applyThemeToOpenSurfaces();
+      updateQuoteReplyTheme(mode);
     });
   }
 
@@ -392,6 +395,7 @@ class BetterDeepSeekFolders {
       this.render();
       this.enhanceNativeConversationRows();
       this.promptPanel?.setLocale(locale);
+      updateQuoteReplyLocale(locale);
     });
   }
 
