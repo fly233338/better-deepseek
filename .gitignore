@@ -3,4 +3,4 @@ dist/
 coverage/
 *.tsbuildinfo
 .codex/
-docs/
+docs/*.md
