@@ -181,7 +181,7 @@ function createFloatingBtn(locale: AppLocale, theme: ThemeMode, selection: Selec
 
   const arrow = document.createElement('span');
   arrow.className = 'bd-quote-btn-arrow';
-  arrow.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+  arrow.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg>';
 
   btn.append(label, arrow);
 
