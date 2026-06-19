@@ -1,6 +1,6 @@
 import { t, type AppLocale } from './i18n';
 import { type ThemeMode } from './theme';
-import { findMarkdownTables, serializeTable, type ParsedTable, type TableFormat } from './tableClip';
+import { extractTables, findMarkdownTables, parseTable, serializeTable, type ParsedTable, type TableFormat } from './tableClip';
 
 interface TableWidget {
   target: HTMLElement;
@@ -185,6 +185,15 @@ export function mountTableToolbar(locale: AppLocale, theme: ThemeMode, root: Doc
   }
 
   function scan(): void {
+    const chatRoot = root.getElementById('root') ?? root;
+    for (const table of extractTables(chatRoot)) {
+      if (hasWidget(table)) continue;
+      const parsed = parseTable(table);
+      const w = createWidget(table, parsed);
+      widgets.set(table, w);
+      hosts.add(w.host);
+      (w.host as HTMLElement & { tableclipTarget?: HTMLElement }).tableclipTarget = table;
+    }
     for (const { target, table } of findMarkdownTables(root)) {
       if (hasWidget(target)) continue;
       if (target.querySelector('table')) continue;
