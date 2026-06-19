@@ -638,17 +638,6 @@ export class PromptPanel {
     importFileBtn.addEventListener('click', () => this.importFile());
     topBar.append(importFileBtn);
 
-    const search = document.createElement('input');
-    search.className = 'bd-pp-search bd-pp-source-searchwide';
-    search.type = 'search';
-    search.placeholder = '在官方仓库搜索';
-    search.value = this.sourceSearchQuery;
-    search.addEventListener('input', () => {
-      this.sourceSearchQuery = search.value;
-      this.renderBody();
-    });
-    topBar.append(search);
-
     const refreshBtn = document.createElement('button');
     refreshBtn.className = 'bd-pp-action-btn';
     refreshBtn.textContent = '刷新';
@@ -667,6 +656,20 @@ export class PromptPanel {
     topBar.append(linkBtn);
 
     left.append(topBar);
+
+    const search = document.createElement('input');
+    search.className = 'bd-pp-search bd-pp-source-searchwide';
+    search.type = 'search';
+    search.placeholder = '在官方仓库搜索';
+    search.value = this.sourceSearchQuery;
+    search.addEventListener('input', () => {
+      this.sourceSearchQuery = search.value;
+      this.renderBody();
+    });
+    const searchRow = document.createElement('div');
+    searchRow.className = 'bd-pp-source-searchrow';
+    searchRow.append(search);
+    left.append(searchRow);
 
     if (this.sourceLoading) {
       const loading = document.createElement('div');
@@ -787,7 +790,7 @@ export class PromptPanel {
     if (stored || added) {
       const badge = document.createElement('span');
       badge.className = 'bd-pp-badge';
-      badge.textContent = added ? '已添加' : '已存在';
+      badge.textContent = added ? '已添加' : '✓';
       badge.style.background = '#f0fdf4';
       badge.style.color = '#16a34a';
       meta.append(badge);

@@ -1081,10 +1081,15 @@
 
 .bd-pp-source-topbar {
   display: grid;
-  grid-template-columns: auto auto 1fr auto auto;
+  grid-template-columns: auto auto auto auto 1fr;
   gap: 8px;
   align-items: center;
   padding: 8px 12px;
+  flex: 0 0 auto;
+}
+
+.bd-pp-source-searchrow {
+  padding: 6px 12px;
   border-bottom: 1px solid #edf0f5;
   flex: 0 0 auto;
 }
