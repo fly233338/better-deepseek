@@ -32,6 +32,15 @@
   --bd-panel-overlay: rgba(0, 0, 0, 0.15);
   --bd-panel-shadow: -4px 0 40px rgba(0, 0, 0, 0.1);
   --bd-dialog-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --bd-quote-bg: #f4f6f9;
+  --bd-quote-border: #e7ebf0;
+  --bd-quote-text: #8a94a3;
+  --bd-quote-icon: #9aa4b2;
+  --bd-quote-hover: #eef1f5;
+  --bd-quote-highlight-start: rgba(148, 163, 184, 0.2);
+  --bd-quote-highlight-end: transparent;
+  --bd-quote-button-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --bd-quote-button-shadow-hover: 0 6px 20px rgba(0, 0, 0, 0.14);
   --bd-switch-bg: #d9e1ee;
   --bd-switch-knob: #ffffff;
   --bd-tag-bg: #eff3fa;
@@ -80,6 +89,15 @@
   --bd-panel-overlay: rgba(0, 0, 0, 0.34);
   --bd-panel-shadow: -4px 0 40px rgba(0, 0, 0, 0.42);
   --bd-dialog-shadow: 0 16px 48px rgba(0, 0, 0, 0.42);
+  --bd-quote-bg: rgba(148, 163, 184, 0.12);
+  --bd-quote-border: rgba(148, 163, 184, 0.2);
+  --bd-quote-text: #a6b0bf;
+  --bd-quote-icon: #98a4b5;
+  --bd-quote-hover: rgba(148, 163, 184, 0.18);
+  --bd-quote-highlight-start: rgba(148, 163, 184, 0.18);
+  --bd-quote-highlight-end: transparent;
+  --bd-quote-button-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  --bd-quote-button-shadow-hover: 0 10px 28px rgba(0, 0, 0, 0.4);
   --bd-switch-bg: #334155;
   --bd-switch-knob: #f8fafc;
   --bd-tag-bg: rgba(122, 162, 255, 0.14);
@@ -1285,19 +1303,19 @@
   padding: 8px 16px;
   border: 1px solid var(--bd-border-strong);
   border-radius: 10px;
-  background: var(--bd-panel-bg, #ffffff);
+  background: var(--bd-panel-bg);
   color: var(--bd-text-strong);
   font: 13px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-weight: 500;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--bd-quote-button-shadow);
   white-space: nowrap;
   transition: box-shadow 0.15s, transform 0.1s;
   user-select: none;
 }
 
 .bd-quote-btn:hover {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  box-shadow: var(--bd-quote-button-shadow-hover);
   transform: translateY(-1px);
 }
 
@@ -1310,25 +1328,24 @@
 .bd-quote-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  margin-bottom: 2px;
-  border: 1px solid #d8e4f5;
-  border-radius: 8px;
-  background: #e3ecfa;
+  gap: 8px;
+  box-sizing: border-box;
+  width: auto;
+  min-height: 34px;
+  padding: 7px 12px;
+  margin: 12px 22px 14px;
+  border: 1px solid var(--bd-quote-border);
+  border-radius: 10px;
+  background: var(--bd-quote-bg);
   font: 12px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: var(--bd-text);
-  width: 980;
-  max-width: 980px; 
-  margin-left: 15px;
-  margin-right: 15px;
+  color: var(--bd-quote-text);
 }
 
 .bd-quote-bar-icon {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  color: #8d9aaf;
+  color: var(--bd-quote-icon);
 }
 
 .bd-quote-bar-preview {
@@ -1337,7 +1354,7 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  color: #8d9aaf;
+  color: var(--bd-quote-text);
   font-size: 12px;
   line-height: 1.4;
   cursor: pointer;
@@ -1348,8 +1365,8 @@
 }
 
 @keyframes bd-quote-flash {
-  0% { background-color: rgba(100, 200, 180, 0.25); }
-  100% { background-color: transparent; }
+  0% { background-color: var(--bd-quote-highlight-start); }
+  100% { background-color: var(--bd-quote-highlight-end); }
 }
 
 .bd-quote-bar-dismiss {
@@ -1363,13 +1380,13 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #b0b8c8;
+  color: var(--bd-quote-icon);
   font: 16px/1 system-ui, sans-serif;
   cursor: pointer;
 }
 
 .bd-quote-bar-dismiss:hover {
-  background: #e0e8f3;
-  color: #6b7484;
+  background: var(--bd-quote-hover);
+  color: var(--bd-muted);
 }
 

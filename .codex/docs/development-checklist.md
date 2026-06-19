@@ -71,3 +71,14 @@
   - `npm run typecheck`
   - `npm test`
   - `npm run build`
+
+## Quote Reply Bar Polish
+
+- Status: Implemented.
+- Summary: The quote reply preview above the DeepSeek composer now uses a softer gray visual style, fluid width, better side alignment with the composer content area, and more comfortable top/bottom spacing.
+- Key files:
+  - `src/content/styles.css`
+- Validation:
+  - `npm run typecheck`
+  - `npm test`
+  - `npm run build`
