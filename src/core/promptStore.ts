@@ -3,7 +3,7 @@ import type { PromptData, PromptFilter, PromptId, PromptItem } from './promptTyp
 
 const BUILTIN_PROMPT_VERSION = 2;
 const BUILTIN_TITLE_ALIASES = new Map([
-  ['角色卡生成器', '角色扮演'],
+  ['角色', '角色扮演'],
 ]);
 const BUILTIN_PROMPTS: Omit<PromptItem, 'id' | 'createdAt' | 'updatedAt' | 'usageCount'>[] = [
   {
@@ -161,7 +161,7 @@ const BUILTIN_PROMPTS: Omit<PromptItem, 'id' | 'createdAt' | 'updatedAt' | 'usag
     source: 'builtin',
   },
   {
-    title: '角色卡生成器',
+    title: '角色',
     description: '生成可用于角色扮演或长期对话的角色设定',
     content: [
       '请帮我创建一个可用于 AI 角色扮演的角色卡。',
