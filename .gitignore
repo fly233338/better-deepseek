@@ -7,3 +7,5 @@ coverage/
 !.codex/docs/overview.md
 !.codex/docs/development-checklist.md
 docs/*.md
+.claude
+*.zip
