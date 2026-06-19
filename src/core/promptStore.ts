@@ -341,7 +341,7 @@ export class PromptStore {
     const now = Date.now();
     const prompt: PromptItem = {
       id: createId('prompt'),
-      title: fields.title.trim() || '新 Prompt',
+      title: fields.title.trim() || '新提示词',
       description: fields.description.trim(),
       content: fields.content.trim(),
       tags: fields.tags.filter(Boolean),

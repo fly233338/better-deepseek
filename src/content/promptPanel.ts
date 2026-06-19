@@ -190,7 +190,7 @@ export class PromptPanel {
     if (prompts.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'bd-pp-empty';
-      empty.textContent = this.searchQuery ? '没有匹配的 Prompt' : '点击"新建"创建第一个 Prompt';
+      empty.textContent = this.searchQuery ? '没有匹配的提示词' : '点击"新建"创建第一个提示词';
       list.append(empty);
       return list;
     }
@@ -273,7 +273,7 @@ export class PromptPanel {
     if (!prompt) {
       const placeholder = document.createElement('div');
       placeholder.className = 'bd-pp-detail-placeholder';
-      placeholder.textContent = '选择左侧 Prompt 查看详情';
+      placeholder.textContent = '选择左侧提示词查看详情';
       detail.append(placeholder);
       return detail;
     }
@@ -372,7 +372,7 @@ export class PromptPanel {
 
     const heading = document.createElement('div');
     heading.className = 'bd-pp-editor-heading';
-    heading.textContent = prompt ? '编辑 Prompt' : '新建 Prompt';
+    heading.textContent = prompt ? '编辑提示词' : '新建提示词';
 
     const titleInput = document.createElement('input');
     titleInput.className = 'bd-pp-editor-input';
@@ -388,7 +388,7 @@ export class PromptPanel {
 
     const contentInput = document.createElement('textarea');
     contentInput.className = 'bd-pp-editor-textarea';
-    contentInput.placeholder = 'Prompt 内容，用 {{变量名}} 标记变量';
+    contentInput.placeholder = '提示词内容，用 {{变量名}} 标记变量';
     contentInput.value = prompt?.content ?? '';
     contentInput.rows = 8;
 
@@ -563,7 +563,7 @@ export class PromptPanel {
       navigator.clipboard.writeText(text).catch(() => {
         console.warn('[BetterDeepSeek] copy fallback failed');
       });
-      alert('未找到输入框，已将 Prompt 内容复制到剪贴板');
+      alert('未找到输入框，已将提示词内容复制到剪贴板');
     }
 
     this.close();
@@ -573,7 +573,7 @@ export class PromptPanel {
 
   private exportAll(): void {
     const data = this.store.snapshot();
-    const json = createExportPayload(data.prompts);
+    const json = createExportPayload(data);
     downloadJson(json, generateExportFilename());
   }
 
@@ -722,7 +722,7 @@ export class PromptPanel {
     if (this.selectedSourceIndex === null || !this.sourcePack[this.selectedSourceIndex]) {
       const placeholder = document.createElement('div');
       placeholder.className = 'bd-pp-detail-placeholder';
-      placeholder.textContent = '选择左侧 Prompt 查看详情';
+      placeholder.textContent = '选择左侧提示词查看详情';
       detail.append(placeholder);
       return detail;
     }

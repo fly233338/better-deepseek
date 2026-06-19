@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Better DeepSeek",
-  "description": "Add local folder management to DeepSeek web.",
+  "description": "DeepSeek 侧边栏文件夹管理 + 提示词库，支持导入导出与外部来源浏览。",
   "version": "0.1.0",
   "permissions": ["storage"],
   "host_permissions": [

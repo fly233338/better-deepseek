@@ -3,22 +3,28 @@ import { computeFingerprint, isRiskPrompt } from '../core/promptStore';
 
 type SourceId = 'deepseek-official' | 'github-deepseek';
 
-interface SourceDef {
+interface SourceMeta {
   id: SourceId;
   name: string;
   url: string;
+  homepage: string;
+  description: string;
 }
 
-const SOURCES: SourceDef[] = [
+const SOURCES: SourceMeta[] = [
   {
     id: 'deepseek-official',
     name: 'DeepSeek 官方精选',
     url: 'https://api-docs.deepseek.com/prompt-library',
+    homepage: 'https://api-docs.deepseek.com/prompt-library',
+    description: 'DeepSeek 官方推荐的提示词模板集合',
   },
   {
     id: 'github-deepseek',
-    name: 'GitHub DeepSeek Prompts 精选',
+    name: 'GitHub DeepSeek 提示词精选',
     url: 'https://raw.githubusercontent.com/langgptai/awesome-deepseek-prompts/main/README.md',
+    homepage: 'https://github.com/langgptai/awesome-deepseek-prompts',
+    description: '社区维护的 DeepSeek 提示词精选列表（已过滤风险内容）',
   },
 ];
 
@@ -59,7 +65,7 @@ const SNAPSHOT: Record<SourceId, PromptSourceItem[]> = {
       content: '你是一个专业的 {{语言/领域}} 开发者。请遵循以下准则：\n\n1. 代码优先：尽量输出可直接运行的完整代码\n2. 解释在后：代码后附上关键逻辑的说明\n3. 遵循 {{语言/领域}} 最佳实践\n\n用户需求：{{需求}}',
       tags: ['编程', '角色'],
       fingerprint: 'github:code-assist:v1',
-      sourceName: 'GitHub DeepSeek Prompts 精选',
+      sourceName: 'GitHub DeepSeek 提示词精选',
       sourceUrl: 'https://github.com/langgptai/awesome-deepseek-prompts',
     },
     {
@@ -68,7 +74,7 @@ const SNAPSHOT: Record<SourceId, PromptSourceItem[]> = {
       content: '请一步一步地思考以下问题，展示你的推理过程：\n\n{{问题}}\n\n请按照以下格式输出：\n1. 问题分析\n2. 已知条件\n3. 推理步骤\n4. 最终答案',
       tags: ['推理', '思考'],
       fingerprint: 'github:cot:v1',
-      sourceName: 'GitHub DeepSeek Prompts 精选',
+      sourceName: 'GitHub DeepSeek 提示词精选',
       sourceUrl: 'https://github.com/langgptai/awesome-deepseek-prompts',
     },
     {
@@ -77,63 +83,161 @@ const SNAPSHOT: Record<SourceId, PromptSourceItem[]> = {
       content: '请用 {{风格}} 的风格写一段关于 {{主题}} 的文字，字数约 {{字数}}。参考以下风格特征：\n\n{{风格特征}}',
       tags: ['写作', '创意'],
       fingerprint: 'github:style-mimic:v1',
-      sourceName: 'GitHub DeepSeek Prompts 精选',
+      sourceName: 'GitHub DeepSeek 提示词精选',
       sourceUrl: 'https://github.com/langgptai/awesome-deepseek-prompts',
     },
   ],
 };
 
-export interface SourceEntry {
-  id: SourceId;
-  name: string;
+const CACHE_KEY = 'betterDeepSeek.sourceCache.v1';
+
+interface SourceCache {
+  sourceId: SourceId;
+  updatedAt: number;
   items: PromptSourceItem[];
 }
 
-export function getSourceList(): SourceDef[] {
-  return [...SOURCES];
+export interface SourceEntry {
+  meta: SourceMeta;
+  status: 'snapshot' | 'cached' | 'fetched' | 'error';
+  items: PromptSourceItem[];
+  updatedAt?: number;
+}
+
+export function getSourceList(): SourceMeta[] {
+  return SOURCES.map((s) => ({ ...s }));
 }
 
 export async function loadSource(sourceId: SourceId): Promise<PromptSourcePack> {
-  const def = SOURCES.find((s) => s.id === sourceId);
-  if (!def) throw new Error('未知来源');
+  const meta = SOURCES.find((s) => s.id === sourceId);
+  if (!meta) throw new Error('未知来源');
+
+  const cached = await loadSourceCache(sourceId);
+  if (cached) {
+    const safe = cached.filter((item) => !isRiskPrompt(item));
+    const risks = cached.filter((item) => isRiskPrompt(item));
+    return { name: meta.name, items: safe, risks };
+  }
 
   try {
-    const resp = await fetch(def.url, { signal: AbortSignal.timeout(8000) });
+    const resp = await fetch(meta.url, { signal: AbortSignal.timeout(8000) });
     if (resp.ok) {
       const text = await resp.text();
-      const parsed = parseRemoteSource(def, text);
-      if (parsed.items.length > 0) return parsed;
+      const parsed = parseRemoteSource(meta, text);
+      if (parsed.items.length > 0) {
+        await saveSourceCache(sourceId, parsed.items);
+        return parsed;
+      }
     }
   } catch {
-    console.warn(`[BetterDeepSeek] 来源刷新失败，使用本地快照: ${def.name}`);
+    console.warn(`[BetterDeepSeek] 来源刷新失败，使用快照: ${meta.name}`);
   }
 
   return loadSnapshot(sourceId);
 }
 
+export async function refreshSource(sourceId: SourceId): Promise<PromptSourcePack> {
+  const meta = SOURCES.find((s) => s.id === sourceId);
+  if (!meta) throw new Error('未知来源');
+
+  try {
+    const resp = await fetch(meta.url, { signal: AbortSignal.timeout(8000) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const text = await resp.text();
+    const parsed = parseRemoteSource(meta, text);
+    if (parsed.items.length > 0) {
+      await saveSourceCache(sourceId, parsed.items);
+      return parsed;
+    }
+  } catch {
+    console.warn(`[BetterDeepSeek] 刷新失败，保持当前数据: ${meta.name}`);
+  }
+
+  return loadSource(sourceId);
+}
+
+export async function getSourceStatus(sourceId: SourceId): Promise<'snapshot' | 'cached'> {
+  const cached = await loadSourceCache(sourceId);
+  return cached ? 'cached' : 'snapshot';
+}
+
+/* ======== internals ======== */
+
 function loadSnapshot(sourceId: SourceId): PromptSourcePack {
   const items = SNAPSHOT[sourceId] ?? [];
+  const safe: PromptSourceItem[] = [];
+  const risks: PromptSourceItem[] = [];
+  for (const item of items) {
+    if (isRiskPrompt(item)) risks.push(item);
+    else safe.push(item);
+  }
+  const meta = SOURCES.find((s) => s.id === sourceId);
   return {
-    name: SOURCES.find((s) => s.id === sourceId)?.name ?? '未知来源',
-    items: items.filter((item) => !isRiskPrompt(item)),
+    name: meta?.name ?? '未知来源',
+    items: safe,
+    risks,
   };
 }
 
-function parseRemoteSource(def: SourceDef, text: string): PromptSourcePack {
+async function loadSourceCache(sourceId: SourceId): Promise<PromptSourceItem[] | null> {
+  const result = await getStorage().get(CACHE_KEY);
+  const cache = result[CACHE_KEY] as Record<string, SourceCache> | undefined;
+  if (!cache?.[sourceId]) return null;
+  return cache[sourceId].items;
+}
+
+async function saveSourceCache(sourceId: SourceId, items: PromptSourceItem[]): Promise<void> {
+  const result = await getStorage().get(CACHE_KEY);
+  const cache = (result[CACHE_KEY] as Record<string, SourceCache> | undefined) ?? {};
+  cache[sourceId] = { sourceId, updatedAt: Date.now(), items };
+  await getStorage().set({ [CACHE_KEY]: cache });
+}
+
+function getStorage() {
+  if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+    return {
+      get: (key: string) => chrome.storage.local.get(key) as Promise<Record<string, unknown>>,
+      set: (items: Record<string, unknown>) => chrome.storage.local.set(items),
+    };
+  }
+  const storage = {
+    get: async (key: string): Promise<Record<string, unknown>> => {
+      const raw = localStorage.getItem(key);
+      return raw ? { [key]: JSON.parse(raw) } : {};
+    },
+    set: async (items: Record<string, unknown>): Promise<void> => {
+      for (const [k, v] of Object.entries(items)) {
+        localStorage.setItem(k, JSON.stringify(v));
+      }
+    },
+  };
+  return storage;
+}
+
+function parseRemoteSource(meta: SourceMeta, text: string): PromptSourcePack {
   try {
     const json = JSON.parse(text);
     if (Array.isArray(json)) {
-      return { name: def.name, items: json.filter((item) => !isRiskPrompt(item)) };
+      const safe: PromptSourceItem[] = [];
+      const risks: PromptSourceItem[] = [];
+      for (const item of json) {
+        if (isRiskPrompt(item)) risks.push(item);
+        else safe.push(item);
+      }
+      return { name: meta.name, items: safe, risks };
     }
   } catch {
-    // not JSON, try parsing as markdown
+    // not JSON
   }
 
-  const prompts = extractMarkdownPrompts(text, def.name);
-  return {
-    name: def.name,
-    items: prompts.filter((item) => !isRiskPrompt(item)),
-  };
+  const prompts = extractMarkdownPrompts(text, meta.name);
+  const safe: PromptSourceItem[] = [];
+  const risks: PromptSourceItem[] = [];
+  for (const item of prompts) {
+    if (isRiskPrompt(item)) risks.push(item);
+    else safe.push(item);
+  }
+  return { name: meta.name, items: safe, risks };
 }
 
 function extractMarkdownPrompts(text: string, sourceName: string): PromptSourceItem[] {
@@ -164,16 +268,14 @@ function extractMarkdownPrompts(text: string, sourceName: string): PromptSourceI
 
     if (trimmedContent.length < 10) continue;
 
-    const item: PromptSourceItem = {
+    items.push({
       title,
       description: trimmedDesc,
       content: trimmedContent,
       tags,
       fingerprint: computeFingerprint(title, trimmedContent),
       sourceName,
-    };
-
-    if (!isRiskPrompt(item)) items.push(item);
+    });
   }
 
   return items;

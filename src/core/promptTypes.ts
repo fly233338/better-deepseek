@@ -33,9 +33,11 @@ export interface PromptSourceItem {
   fingerprint: string;
   sourceName: string;
   sourceUrl?: string;
+  favorite?: boolean;
 }
 
 export interface PromptSourcePack {
   name: string;
   items: PromptSourceItem[];
+  risks?: PromptSourceItem[];
 }

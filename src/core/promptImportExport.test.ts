@@ -9,12 +9,30 @@ import {
 
 describe('promptImportExport', () => {
   describe('createExportPayload', () => {
-    it('generates valid JSON', () => {
-      const json = createExportPayload([]);
+    it('generates valid JSON with full data', () => {
+      const json = createExportPayload({ prompts: [], builtinVersion: 2 });
       const parsed = JSON.parse(json);
-      expect(parsed.version).toBe('better-deepseek.prompts.v1');
+      expect(parsed.version).toBe('better-deepseek.prompts.v2');
       expect(parsed.prompts).toEqual([]);
       expect(parsed.exportedAt).toBeGreaterThan(0);
+      expect(parsed.builtinVersion).toBe(2);
+    });
+
+    it('round-trips keeps key fields', () => {
+      const data = {
+        prompts: [{
+          id: '1', title: 'Test', description: 'D', content: 'C', tags: ['t'],
+          source: 'imported' as const, sourceName: 'GitHub', sourceUrl: 'https://x',
+          fingerprint: 'fp123', favorite: true, usageCount: 5, createdAt: 1, updatedAt: 2,
+          lastUsedAt: 3,
+        }],
+        builtinVersion: 1,
+      };
+      const json = createExportPayload(data);
+      const pack = parseBetterDeepSeekJson(json);
+      expect(pack.items[0].title).toBe('Test');
+      expect(pack.items[0].favorite).toBe(true);
+      expect(pack.items[0].fingerprint).toBe('fp123');
     });
   });
 
