@@ -34,6 +34,7 @@ import { detectLocale, observeLocaleChanges, t, type AppLocale, type MessageKey 
 import { PromptPanel } from './promptPanel';
 import { mountQuoteReply, updateQuoteReplyLocale, updateQuoteReplyTheme } from './quoteReply';
 import { applyThemeClass, detectThemeMode, observeThemeChanges, type ThemeMode } from './theme';
+import { mountTabTitleSync } from './tabTitleSync';
 
 const ROOT_ID = 'better-deepseek-folders';
 const DRAG_MIME = 'application/x-better-deepseek';
@@ -83,6 +84,7 @@ class BetterDeepSeekFolders {
     this.enhanceNativeConversationRows();
     this.refreshNativeConversationVisibility();
     this.observePageChanges();
+    mountTabTitleSync();
     mountQuoteReply(this.locale, this.themeMode);
     this.observeThemeChanges();
     this.observeLocaleChanges();
